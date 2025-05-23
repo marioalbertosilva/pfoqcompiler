@@ -1,0 +1,12 @@
+decl count(q,r){
+    if(|q|>1)then{
+        qcase(q[(|q|)/2-1]) of {
+            0-> call count((q)^+,r-[0]);,
+            1-> r[0]*=NOT; call count((q)^-,r-[0]);
+        }
+    }else{skip;}
+}
+::
+define q r;
+::
+call count(q,r);

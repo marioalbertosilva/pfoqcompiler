@@ -1,0 +1,31 @@
+decl palindrome(q,r){
+    if(|q|>2)then{
+        qcase(q[0]) of {
+            0->qcase(q[-1]) of{
+                0->call palindrome(q-[0,-1],r);,
+                1->skip;
+            },
+            1->qcase(q[-1]) of{
+                0->skip;,
+                1->call palindrome(q-[0,-1],r);
+            }
+        }
+    }else{
+     if (|q|>1) then {
+     qcase(q[0]) of {
+            0->qcase(q[-1]) of{
+                0->r[0]*=NOT;,
+                1->skip;
+            },
+            1->qcase(q[-1]) of{
+                0->skip;,
+                1->r[0]*=NOT;
+            }
+        }
+     }else{r[0]*=NOT;}
+}
+}
+::
+define q r;
+::
+call palindrome(q,r);

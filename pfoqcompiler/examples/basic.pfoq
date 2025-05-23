@@ -1,0 +1,17 @@
+decl f[x](q){
+    qcase(q[0]) of {
+        0-> call f[x-1](q-[0]);,
+        1-> call g(q-[0]);
+        }
+}
+decl g(q){
+    if(|q|>1)then{
+        call g(q-[0]);
+    }else{
+        q[0]*=NOT;
+    }
+}
+::
+define q;
+::
+call f[2](q);

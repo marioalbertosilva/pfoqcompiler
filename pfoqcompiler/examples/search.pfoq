@@ -1,0 +1,18 @@
+decl search(q,r){
+    if(|q|>1)then{
+        qcase(q[|q|/2-1]) of {
+            0->qcase(q[|q|/2]) of{
+                0->call search((q)^+ -[0],r);,
+                1->r[0] *=NOT;
+            },
+            1->qcase(q[|q|/2]) of{
+                0->call search((q)^- -[-1],r);,
+                1-> skip;
+            }
+        }
+    }else{skip;}
+}
+::
+define q r;
+::
+call search(q,r);

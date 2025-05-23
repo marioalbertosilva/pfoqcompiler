@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pfoqcompiler"
+version = "0.1"
+dependencies = [
+"lark",
+"qiskit",
+"matplotlib",
+"pylatexenc",
+"networkx",
+"sphinx",
+"pydata_sphinx_theme"
+]
+
+[tool.setuptools]
+packages = ["pfoqcompiler"]

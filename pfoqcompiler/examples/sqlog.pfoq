@@ -1,0 +1,14 @@
+decl f(q,r){
+    q[0] *= Ph(|q|);
+    call f((q)^+,r);
+    call g(q,r-[0]);}
+decl g(q,r){
+    qcase(q[|q|/2])of{
+        0->call g((q)^-,r);,
+        1->r[0]*=NOT;
+    }
+}
+::
+define q r;
+::
+call f(q,r);

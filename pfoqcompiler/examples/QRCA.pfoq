@@ -1,0 +1,19 @@
+decl add(q,p,r){
+	TOF(q[-1],p[-1],r[-2]);
+	CNOT(q[-1],p[-1]);
+	TOF(p[-1],r[-1],r[-2]);
+	CNOT(p[-1],r[-1]);
+	CNOT(q[-1],p[-1]);	
+}
+decl full_adder(q,p,r){
+	if(|r|>1)then{
+	call add(q,p,r);
+	call full_adder(q-[-1],
+			p-[-1],
+			r-[-1]);
+	}
+}
+::
+define q p r;
+::
+call full_adder(q,p,r);

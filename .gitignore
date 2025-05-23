@@ -1,0 +1,7 @@
+*~
+*.qasm
+*.egg-info/
+*/__pycache__
+doc/build
+doc/source/_autosummary
+doc/source/_toctree

@@ -1,0 +1,10 @@
+decl zero(q){ qcase (q[0]) of {0 -> call zero(q-[0]);, 1 -> call one(q-[0]); } }
+decl one(q){ qcase (q[0]) of {0 -> call one(q-[0]);, 1 -> call two(q-[0]); } }
+decl two(q){ qcase (q[0]) of {0 -> call two(q-[0]);, 1 -> call three(q-[0]); } }
+decl three(q){
+    if(|q|>1)then{qcase (q[0]) of {0 -> call three(q-[0]);, 1 -> skip; }}else{call oplus(q);}}
+decl oplus(q){ q[-1] *= NOT; }
+::
+define q;
+::
+call zero(q);

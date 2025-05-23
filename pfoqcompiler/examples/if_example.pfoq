@@ -1,0 +1,6 @@
+::
+define q;
+::
+if(2>3)then{q[1]*=NOT;}else{q[2]*=H;}
+if(true)then{q[1]*=NOT;}else{q[2]*=H;}
+if(false)then{q[1]*=NOT;}else{q[2]*=H;}
