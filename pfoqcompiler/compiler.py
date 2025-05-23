@@ -1220,7 +1220,7 @@ if __name__ == "__main__":
     
 
     FILENAMES = ["examples/cat_state_parallel.pfoq"]
-    filenames = FILENAMES if args.filename is None else ["examples/"+filename for filename in args.filename]
+    filenames = FILENAMES if args.filename is None else [filename for filename in args.filename]
 
     for filename in filenames:
 
