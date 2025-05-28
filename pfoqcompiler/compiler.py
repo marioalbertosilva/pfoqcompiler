@@ -255,6 +255,22 @@ class PfoqCompiler:
         self._compiled_circuit = qc
         #is this return necessary?
         return self._compiled_circuit
+    
+    def _create_control_state(self, cs: dict):
+        """" Create control state from dictionary cs.
+
+        Parameters
+        ----------
+        cs : dict
+            Dictionary of qubit addresses and respective state
+
+        Examples
+        --------
+        >>> cs = {0:1, 2:1, 5:1}
+        >>> compiler = PfoqCompiler(program=prg)
+        >>> compiler._create_control_state(cs)    
+        """
+        return "".join(str(i) for _, i in reversed(sorted(cs.items())))
 
     def _compute_call_graph(self):
         initial_graph = nx.DiGraph()
@@ -312,6 +328,12 @@ class PfoqCompiler:
         qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables)
         if qubit in cs:
             raise IndexError(f"Cannot apply gate on qubit {qubit} that is controlled on its state.")
+        
+        if ast.children[1].data == "not_gate":
+            qc = QuantumCircuit(*self._qr, self._ar)
+            qc.mcx(list(sorted(cs)),qubit,ctrl_state = self._create_control_state(cs))
+            return qc
+        
         gate = self._compr_gate_expression(ast.children[1], L, cs, variables)
         qc = QuantumCircuit(*self._qr, self._ar)
         qc.append(gate, list(sorted(cs)) + [qubit])
@@ -322,13 +344,13 @@ class PfoqCompiler:
         if qubit1 in cs:
             raise IndexError(f"Multiple controls on same qubit {qubit1}.")
         cs[qubit1] = 1
-        gate = ControlledGate("CX",
-                              1 + len(cs),
-                              [],
-                              num_ctrl_qubits=len(cs),
-                              ctrl_state="".join(
-                                  str(i) for _, i in reversed(sorted(cs.items()))),
-                              base_gate=XGate())
+        # gate = ControlledGate("CX",
+        #                       1 + len(cs),
+        #                       [],
+        #                       num_ctrl_qubits=len(cs),
+        #                       ctrl_state="".join(
+        #                           str(i) for _, i in reversed(sorted(cs.items()))),
+        #                       base_gate=XGate())
         qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
         if qubit2 in cs:
             raise IndexError(
@@ -336,7 +358,8 @@ class PfoqCompiler:
 
         qc = QuantumCircuit(*self._qr, self._ar)
         if cs:
-            qc.append(gate, list(sorted(cs)) + [qubit2])
+            qc.mcx(list(sorted(cs)),qubit2, ctrl_state = self._create_control_state(cs))
+            #qc.append(gate, list(sorted(cs)) + [qubit2])
             del cs[qubit1]
         return qc
 
@@ -377,7 +400,7 @@ class PfoqCompiler:
         qc = QuantumCircuit(*self._qr, self._ar)
 
         if cs:
-            gate = ControlledGate("CX",
+            gate = ControlledGate("cx",
                               3 + len(cs),
                               [],
                               num_ctrl_qubits=2+len(cs),
@@ -386,7 +409,7 @@ class PfoqCompiler:
                               base_gate=XGate())
             
         else:
-            gate = ControlledGate("CX",
+            gate = ControlledGate("cx",
                               3,
                               [],
                               num_ctrl_qubits=2,
@@ -645,7 +668,7 @@ class PfoqCompiler:
             q3 = self._compr_int_expression(ast.children[2],L,cs,variables)
 
             if cs:
-                return ControlledGate("CX",
+                return ControlledGate("mcx",
                                       3,
                                       [],
                                       num_ctrl_qubits = 2,
@@ -656,7 +679,7 @@ class PfoqCompiler:
         
         elif ast.data == "not_gate":
             if cs:
-                return ControlledGate("CX",
+                return ControlledGate("mcx",
                                       1 + len(cs),
                                       [],
                                       num_ctrl_qubits=len(cs),
@@ -797,18 +820,20 @@ class PfoqCompiler:
                 reg_sizes = tuple([len(new_L[reg]) for reg in self._qubit_registers])
                 if (proc_identifier,reg_sizes, int_parameter) in Ancillas:
                     ancilla, anchored_L = Ancillas[(proc_identifier, reg_sizes, int_parameter)]
-                    gate = ControlledGate("CX",
-                                          1 + len(cs),
-                                          [],
-                                          num_ctrl_qubits=len(cs),
-                                          ctrl_state="".join(str(i)
-                                                             for _, i in reversed(sorted(cs.items()))),
-                                          base_gate=XGate())
+                    # gate = ControlledGate("CX",
+                    #                       1 + len(cs),
+                    #                       [],
+                    #                       num_ctrl_qubits=len(cs),
+                    #                       ctrl_state="".join(str(i)
+                    #                                          for _, i in reversed(sorted(cs.items()))),
+                    #                       base_gate=XGate())
 
-                    C_L.append(gate, list(sorted(cs)) + [ancilla])
+
+                    C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = self._create_control_state(cs))
+                    #C_L.append(gate, list(sorted(cs)) + [ancilla])
 
                     circ = QuantumCircuit(*self._qr, self._ar)
-                    circ.append(gate, list(sorted(cs)) + [ancilla])
+                    circ.mcx(list(sorted(cs)),ancilla, ctrl_state = self._create_control_state(cs))
                     C_R = circ.compose(C_R)
 
 
@@ -832,14 +857,17 @@ class PfoqCompiler:
                         if self._max_used_ancilla >= self._nb_ancillas:
                             raise AncillaIndexError("Not enough ancillas")
 
-                        C_L.append(gate, list(sorted(cs)) + [starting_ancilla])
+                        C_L.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = self._create_control_state(cs))
+                        #C_L.append(gate, list(sorted(cs)) + [starting_ancilla])
                         circ = QuantumCircuit(*self._qr, self._ar)
-                        circ.append(gate, list(sorted(cs)) + [starting_ancilla])
+
+                        circ.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = self._create_control_state(cs))
+                        #circ.append(gate, list(sorted(cs)) + [starting_ancilla])
                         C_R = circ.compose(C_R)
 
                         swap_ancillas = 1
 
-                        cnot = ControlledGate("CX",
+                        cnot = ControlledGate("cx",
                                               2,
                                               [],
                                               num_ctrl_qubits=1,
@@ -907,17 +935,20 @@ class PfoqCompiler:
                             raise AncillaIndexError("Not enough ancillas")
                         Ancillas[(proc_identifier, tuple([len(new_L[reg]) for reg in self._qubit_registers]), int_parameter)] = [ancilla, new_L]
                         #print("anc", Ancillas)
-                        gate = ControlledGate("CX",
-                                              1 + len(cs),
-                                              [],
-                                              num_ctrl_qubits=len(cs),
-                                              ctrl_state="".join(str(i) for _, i in reversed(sorted(cs.items()))),
-                                              base_gate=XGate())
+                        # gate = ControlledGate("CX",
+                        #                       1 + len(cs),
+                        #                       [],
+                        #                       num_ctrl_qubits=len(cs),
+                        #                       ctrl_state="".join(str(i) for _, i in reversed(sorted(cs.items()))),
+                        #                       base_gate=XGate())
                         
-                        C_L.append(gate, list(sorted(cs)) + [ancilla])
+                        C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = self._create_control_state(cs))
+
+                        #C_L.append(gate, list(sorted(cs)) + [ancilla])
 
                         circ = QuantumCircuit(*self._qr, self._ar)
-                        circ.append(gate, list(sorted(cs)) + [ancilla])
+                        circ.mcx(list(sorted(cs)),ancilla, ctrl_state = self._create_control_state(cs))
+                        #circ.append(gate, list(sorted(cs)) + [ancilla])
                         C_R = circ.compose(C_R)
 
                         l_CST.append(
