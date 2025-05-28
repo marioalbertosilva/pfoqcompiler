@@ -18,7 +18,7 @@ import qiskit.qasm3
 from math import ceil
 
 import warnings
-from pfoqcompiler.errors import WidthError, AncillaIndexError
+from pfoqcompiler.errors import WidthError, AncillaIndexError, NotCompiledError
 from pfoqcompiler.parser import PfoqParser
 
 
@@ -91,6 +91,12 @@ class PfoqCompiler:
         self._optimize_flag = optimize_flag
         self._old_optimize = old_optimize
         self._enforce_order = barriers
+
+    @property
+    def compiled_circuit(self):
+        if self.compiled_circuit is None:
+            raise NotCompiledError("Circuit has not been compiled.")
+        return self._compiled_circuit
         
 
     def parse(self):
@@ -159,13 +165,13 @@ class PfoqCompiler:
 
     def save(self, filename: str):
         if self._compiled_circuit is None:
-            raise ValueError("The circuit hasn't been successfully compiled yet.")
+            raise NotCompiledError("The circuit hasn't been successfully compiled yet.")
         with open(f"{filename}.qasm", "w") as f:
             qiskit.qasm3.dump(self._compiled_circuit, f)
 
     def display(self):
         if self._compiled_circuit is None:
-            raise ValueError("The circuit hasn't been successfully compiled yet.")
+            raise NotCompiledError("The circuit hasn't been successfully compiled yet.")
                     
         try:
             

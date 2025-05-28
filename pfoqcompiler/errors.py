@@ -27,3 +27,16 @@ class AncillaIndexError(Exception):
     """
     def __init__(self, err_message: str, *args: object) -> None:
         super().__init__(*args)
+
+
+class NotCompiledError(Exception):
+    """Raised when checking a circuit that has not yet been compiled.
+
+    Parameters
+    ----------
+    err_message: str
+        Error message explaining and localizing the error.
+
+    """
+    def __init__(self, err_message: str, *args: object) -> None:
+        super().__init__(*args)
