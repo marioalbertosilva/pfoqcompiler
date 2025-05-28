@@ -94,7 +94,7 @@ class PfoqCompiler:
 
     @property
     def compiled_circuit(self):
-        if self.compiled_circuit is None:
+        if self._compiled_circuit is None:
             raise NotCompiledError("Circuit has not been compiled.")
         return self._compiled_circuit
         
