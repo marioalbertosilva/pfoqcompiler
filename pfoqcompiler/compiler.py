@@ -94,10 +94,11 @@ class PfoqCompiler:
 
     @property
     def compiled_circuit(self):
-        if self._compiled_circuit is None:
-            raise NotCompiledError("Circuit has not been compiled.")
         return self._compiled_circuit
         
+    @property
+    def ast(self):
+        return self._ast
 
     def parse(self):
         try:

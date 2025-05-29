@@ -1,0 +1,18 @@
+decl pairs(q){
+    if(|q|>1)then{
+        qcase(q[0]) of {
+            0->qcase(q[1]) of{
+                0->call pairs(q-[0,1]);,
+                1->skip;
+            },
+            1->qcase(q[1]) of{
+                0->skip;,
+                1->cll pairs(q-[0,1]);
+            }
+        }
+    }else{q[0]*=NOT;}
+}
+::
+define q;
+::
+call pairs(q);
