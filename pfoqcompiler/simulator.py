@@ -56,13 +56,13 @@ initial_state[indexket("0001110".ljust(circ.num_qubits,"0"))] = 1
 state = Statevector(initial_state)
 
 # for instruction in circ:
-#    print(instruction)
+#     print(instruction)
 
 print("INPUT:")
 print(state.to_dict())
 
 print("\nOUTPUT:")
-out = state.evolve(circ,qargs=["q","r","|0\rangle"])
+out = state.evolve(circ)
 
 print(out.equiv(state)) #checks if two statevectors are equal up to a global phase
 print({state:amplitude for state,amplitude in out.to_dict().items() if np.absolute(amplitude)>0.0001})
