@@ -9,8 +9,8 @@ from qiskit.circuit import ControlledGate
 from pfoqcompiler.compiler import PfoqCompiler
 
 
-compiler = PfoqCompiler(filename="examples/pairs.pfoq",
-                        nb_qubits=[7],
+compiler = PfoqCompiler(filename="examples/search.pfoq",
+                        nb_qubits=[6,1],
                         optimize_flag=True,
                         barriers=False,
                         old_optimize=False)
@@ -51,20 +51,21 @@ def indexket(string):
 #initial_state = np.array([0 for i in range(int(2**circ.num_qubits()))])
 
 initial_state = np.zeros(int(2**circ.num_qubits))
-initial_state[indexket("0"*circ.num_qubits)] = 1
-initial_state[indexket("0"*circ.num_ancillas+"1"*(circ.num_qubits-circ.num_ancillas))] = 1
+initial_state[indexket("0001110".ljust(circ.num_qubits,"0"))] = 1
+#initial_state[indexket("0"*circ.num_ancillas+"1"*(circ.num_qubits-circ.num_ancillas))] = 1
 state = Statevector(initial_state)
 
-#for instruction in circ:
+# for instruction in circ:
 #    print(instruction)
 
 print("INPUT:")
 print(state.to_dict())
 
 print("\nOUTPUT:")
-out = state.evolve(circ).to_dict()
+out = state.evolve(circ,qargs=["q","r","|0\rangle"])
 
-print({state:amplitude for state,amplitude in state.evolve(circ).to_dict().items() if np.absolute(amplitude)>0.0001})
+print(out.equiv(state)) #checks if two statevectors are equal up to a global phase
+print({state:amplitude for state,amplitude in out.to_dict().items() if np.absolute(amplitude)>0.0001})
 
 # instruction = circ[0]
 

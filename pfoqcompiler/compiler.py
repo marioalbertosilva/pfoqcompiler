@@ -867,12 +867,12 @@ class PfoqCompiler:
 
                         swap_ancillas = 1
 
-                        cnot = ControlledGate("cx",
-                                              2,
-                                              [],
-                                              num_ctrl_qubits=1,
-                                              ctrl_state="1",
-                                              base_gate=XGate())
+                        # cnot = ControlledGate("cx",
+                        #                       2,
+                        #                       [],
+                        #                       num_ctrl_qubits=1,
+                        #                       ctrl_state="1",
+                        #                       base_gate=XGate())
 
                         # log-depth ancilla preparation
                         while swap_ancillas < largest_size:
@@ -886,9 +886,11 @@ class PfoqCompiler:
                                 if self._max_used_ancilla >= self._nb_ancillas:
                                     raise AncillaIndexError("Not enough ancillas")
 
-                                C_L.append(cnot, [source, target])
+                                C_L.cx(source,target)
+                                #C_L.append(cnot, [source, target])
                                 circ = QuantumCircuit(*self._qr, self._ar)
-                                circ.append(cnot, [source, target])
+                                circ.cx(source,target)
+                                #circ.append(cnot, [source, target])
                                 C_R = circ.compose(C_R)
 
                                 swap_ancillas += 1
@@ -902,12 +904,12 @@ class PfoqCompiler:
 
                         # performing controlled-swaps
 
-                        cswap = ControlledGate("CSWAP",
-                                               3,
-                                               [],
-                                               num_ctrl_qubits=1,
-                                               ctrl_state="1",
-                                               base_gate=SwapGate())
+                        # cswap = ControlledGate("CSWAP",
+                        #                        3,
+                        #                        [],
+                        #                        num_ctrl_qubits=1,
+                        #                        ctrl_state="1",
+                        #                        base_gate=SwapGate())
 
 
                         for step in transposition_list:
@@ -917,9 +919,11 @@ class PfoqCompiler:
                                     [q1, q2] = qubit_pair
 
                                     source = starting_ancilla + i
-                                    C_L.append(cswap, [source, q1, q2])
+                                    C_L.cswap(source,q1,q2)
+                                    #C_L.append(cswap, [source, q1, q2])
                                     circ = QuantumCircuit(*self._qr, self._ar)
-                                    circ.append(cswap, [source, q1, q2])
+                                    #circ.append(cswap, [source, q1, q2])
+                                    circ.cswap(source,q1,q2)
                                     C_R = circ.compose(C_R)
 
                                     i += 1
