@@ -8,6 +8,7 @@
 machine@user:~$ sudo apt install software-properties-common -y
 machine@user:~$ sudo add-apt-repository ppa:deadsnakes/ppa
 machine@user:~$ sudo apt install python3.10
+machine@user:~$ curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
 ```
 If you needed these steps to upgrade to Python 3.10, do **NOT** try under any circumstances to play with the different Python versions now installed on your machine, you **will** break it.
 The previously installed Python 2 and Python 3 should still be the default and everything should still work. 
