@@ -71,12 +71,16 @@ class PfoqCompiler:
                  nb_ancillas: int = 1,
                  optimize_flag: bool = True,
                  old_optimize: bool = False,
-                 barriers: bool = False):
-        
-        if len((tmp_set := {program, filename} - {None})) == 0:
+                 barriers: bool = False,
+                 _ast: Optional[lark.Tree] = None):
+
+        if _ast is not None:
+            self._ast = _ast
+
+        elif len((tmp_set := {program, filename} - {None})) == 0:
             raise ValueError("Either program or filename argument must be provided.")
 
-        if len(tmp_set) == 2:
+        elif len(tmp_set) == 2:
             raise ValueError("At most one of program and filename must be provided.")
 
         self._filename = filename

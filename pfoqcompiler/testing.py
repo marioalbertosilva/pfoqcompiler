@@ -3,18 +3,13 @@ from pfoqcompiler.compiler import PfoqCompiler
 from pfoqcompiler.errors import WidthError, AncillaIndexError, NotCompiledError
 from qiskit.quantum_info import Statevector
 from typing_extensions import Optional, Union
-from qiskit_aer import AerSimulator
 import numpy as np
-
-
-
-
-def indexket(string):
-    return int(string, 2)
 
 
 class ProgramTester():
     """Class for testing FOQ programs.
+
+    Automatize the testing of the parsing, compilation and execution of a FOQ program.
 
     Parameters
     ----------
@@ -29,40 +24,65 @@ class ProgramTester():
         classical: bool
             whether to run a classical simulation (for circuits consiting of classical gates)
 
+    Examples
+    --------
+    >>> prg = "decl pairs(q){if(|q|>1)then{qcase(q[0]) of {0->qcase(q[1]) of{0->call pairs(q-[0,1]);,1->skip;},1->qcase(q[1]) of{0->skip;,1->call pairs(q-[0,1]);}}}else{q[0]*=NOT;}}::define q;::call pairs(q);"
+    >>> tester = ProgramTester(program=prg, inout={(3,): [("000", "100"), ("101", "101")]})
+    >>> tester.run()
+    >>> tester = ProgramTester(program=prg+"err", inout={(3,): [("000", "100"), ("101", "101")]})
+    >>> tester.run()  # Expected parsing error that skips following tests
+
     """
 
     def __init__(self,
                  program: str,
-                 inout: dict[tuple[int],list[tuple[Union[Statevector,str]]]],
+                 inout: dict[tuple[int], list[tuple[Union[Statevector, str]]]],
                  *args,
                  **flags):
-        
 
         self.classical_simulation = flags.get("classical", False)
         self.program = program
         self.inout = inout
-
-        # self.simulator = AerSimulator(method="statevector")
         self.tests = unittest.TestSuite()
 
+        if len(inout) == 0:
+            return
 
+        dummy_compiler = PfoqCompiler(program=program,
+                                      nb_qubits=next(iter(self.inout)),
+                                      optimize_flag=True,
+                                      barriers=False,
+                                      old_optimize=False)
+
+        self.tests.addTest(TestPFOQParsing(dummy_compiler))
         for input_sizes, inout_list in self.inout.items():
-            compiler = PfoqCompiler(program=program,
-                nb_qubits=input_sizes,
-                optimize_flag=True,
-                barriers=False,
-                old_optimize=False)
+            compiler = PfoqCompiler(_ast=True,
+                                    nb_qubits=input_sizes,
+                                    optimize_flag=True,
+                                    barriers=False,
+                                    old_optimize=False)
 
-
-            self.tests.addTest(TestPFOQParsing(compiler))
-
-            self.tests.addTest(TestPFOQCompilation(compiler))
+            self.tests.addTest(TestPFOQCompilation(compiler, dummy_compiler))
 
             for input, output in inout_list:
                 self.tests.addTest(TestPFOQExecution(compiler, input, output))
 
+    def run(self):
+        """
+        Run the planned tests
+
+        """
+        runner = unittest.TextTestRunner()
+        runner.run(self.tests)
+
 
 class TestPFOQParsing(unittest.TestCase):
+    """TestCase of the parsing of a configured compiler.
+
+    compiler: PfoqCompiler
+        Compiler with program whose parsing is to be tested.
+
+    """
 
     def __init__(self, compiler, methodName="test_parse"):
         self.compiler = compiler
@@ -73,12 +93,21 @@ class TestPFOQParsing(unittest.TestCase):
 
 
 class TestPFOQCompilation(unittest.TestCase):
+    """TestCase of the compilation of a configured compiler.
 
-    def __init__(self, compiler, methodName="test_compile"):
+    compiler: PfoqCompiler
+        Compiler with program whose compilation is to be tested.
+
+    """
+
+    def __init__(self, compiler, dummy_compiler=None, methodName="test_compile"):
         self.compiler = compiler
+        self.dummy_compiler = dummy_compiler
         super().__init__(methodName)
 
     def setUp(self):
+        if self.dummy_compiler is not None:
+            self.compiler._ast = self.dummy_compiler.ast
         if self.compiler.ast is None:
             self.skipTest("Unsuccessful parsing")
             return
@@ -87,13 +116,14 @@ class TestPFOQCompilation(unittest.TestCase):
         self.assertIsNotNone(self.compiler.ast)
         self.compiler.compile()
 
-    # def run(self, result=None):
-    #     if self.compiler.ast is None:
-    #         result.stop()
-    #         return
-    #     super().run(result=result)
 
 class TestPFOQExecution(unittest.TestCase):
+    """TestCase of the execution of a compiled FOQ program.
+
+    compiler: PfoqCompiler
+        Compiler with program whose compilation is to be tested.
+
+    """
 
     def __init__(self, compiler: PfoqCompiler, input, output, methodName="test_exec"):
         self.compiler = compiler
@@ -113,45 +143,35 @@ class TestPFOQExecution(unittest.TestCase):
         self.assertIsNotNone(self.compiler.compiled_circuit)
         self.assertTrue((compiled := self.input.evolve(self.compiler.compiled_circuit)).equiv(self.output),
                         f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input)}, expected {sv_to_dict(self.output)}")
-        
-    # def run(self, result=None):
-    #     if self.compiler.compiled_circuit is None:
-    #         print("iStop")
-    #         result.stop()
-    #         return
-    #     super().run(result=result)
 
 
-
-def manageinout(inout,circ):
+def manageinout(inout, circ):
     state = np.zeros(int(2**circ.num_qubits))
     state[indexket(inout.zfill(circ.num_qubits))] = 1
 
     return Statevector(state)
 
-def sv_to_dict(sv: Statevector, precision = 4):
+
+def sv_to_dict(sv: Statevector, precision=4):
     return {str(state): round(float(amplitude.real), precision)+1j*round(float(amplitude.imag), precision) for state, amplitude in sv.to_dict().items() if np.absolute(amplitude) > 10**(-precision)}
 
 
+def indexket(string):
+    return int(string, 2)
 
 
 if __name__ == '__main__':
-
-    program_tester = ProgramTester(program=open("examples/pairs.pfoq","r").read(),
-                                   inout={(7,):[("0"*7,"1"+"0"*6),
-                                                ("1111101","0"+"1"*6)],
-                                            (9,):[("0"*9,"1"+"0"*8),
-                                                  ("1"*9,"0"+"1"*8)]})
+    program_tester = ProgramTester(program=open("pfoqcompiler/examples/pairs.pfoq", "r").read(),
+                                   inout={(7,): [("0"*7, "1"+"0"*6),
+                                                 ("1111101", "0"+"1"*6)],
+                                          (9,): [("0"*9, "1"+"0"*8),
+                                                 ("1"*9, "0"+"1"*8)]})
     
-    program_tester2= ProgramTester(program=open("examples/pairs_error.pfoq","r").read(),
-                                   inout={(7,):[("0"*7,"1"+"0"*6),
-                                                ("1111101","0"+"1"*6)],
-                                            (9,):[("0"*9,"1"+"0"*8),
-                                                  ("1"*9,"0"+"1"*8)]})
+    program_tester2 = ProgramTester(program=open("pfoqcompiler/examples/pairs_error.pfoq", "r").read(),
+                                    inout={(7,): [("0"*7, "1"+"0"*6),
+                                                  ("1111101", "0"+"1"*6)],
+                                           (9,): [("0"*9, "1"+"0"*8),
+                                                  ("1"*9, "0"+"1"*8)]})
 
-
-
-
-    runner = unittest.TextTestRunner()
-    runner.run(program_tester.tests)
-    runner.run(program_tester2.tests)
+    program_tester.run()
+    program_tester2.run()
