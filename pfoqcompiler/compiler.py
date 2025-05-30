@@ -10,18 +10,15 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from typing_extensions import Optional, Union
 from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister
+from qiskit.circuit import Qubit
 from qiskit.circuit.library import HGate, XGate, CCXGate, SwapGate, RYGate, CPhaseGate, PhaseGate, Barrier
 from qiskit.circuit import Gate, ControlledGate, CircuitInstruction
 from qiskit.visualization import circuit_drawer
-#from qiskit_addon_cutting.utils.simulation import simulate_statevector_outcomes
 import qiskit.qasm3
 from math import ceil
 
-import warnings
 from pfoqcompiler.errors import WidthError, AncillaIndexError, NotCompiledError
 from pfoqcompiler.parser import PfoqParser
-
-
 
 
 DEBUG = False
@@ -46,10 +43,23 @@ class PfoqCompiler:
     nb_ancillas: int
         Number of ancilla qubits available to work with.
 
+    optimize_flag: bool
+        Whether a compilation technique optimizing the circuit is run, default is True.
+
+    old_optimize: bool
+        Toggle either the old optimization procedure or the new one, default is False.
+
+    barriers: bool
+        Whether some invisible barriers are added to the circuit to clarify the display, default is False.
+
+    _ast: lark.Tree
+        Internal option to resuse a previously parsed ast.
+
     Examples
     --------
     >>> prg = "decl f(q){q[0]*=H;call f(q-[0]);}:: define q; :: call f(q);"
     >>> compiler = PfoqCompiler(program=prg)
+    >>> compiler.parse()
     >>> compiler.compile()
 
     """
@@ -79,7 +89,6 @@ class PfoqCompiler:
         self._parser = PfoqParser()
         self._nb_qubits = nb_qubits
         self._nb_ancillas = nb_ancillas
-        #self._qr = [QuantumRegister(self._nb_qubits, name="q")]
         self._qr = []
         self._ar = AncillaRegister(self._nb_ancillas, name="|0\\rangle")
         self._functions = {}
@@ -95,7 +104,7 @@ class PfoqCompiler:
     @property
     def compiled_circuit(self):
         return self._compiled_circuit
-        
+
     @property
     def ast(self):
         return self._ast
@@ -103,7 +112,7 @@ class PfoqCompiler:
     def parse(self):
         try:
             self._ast = self._parser.parse(self._program)
-            
+
             if DEBUG:
                 print(self._ast)
         except Exception as exception:
@@ -135,8 +144,9 @@ class PfoqCompiler:
 
         Examples
         --------
-        >>> prg = "decl f(q){q[0]*=H;call f(q-[0]);}::call f(q);"
+        >>> prg = "decl f(q){q[0]*=H;call f(q-[0]);}::define q;::call f(q);"
         >>> compiler = PfoqCompiler(program=prg)
+        >>> compiler.parse()
         >>> compiler.compile()
 
         """
@@ -173,9 +183,8 @@ class PfoqCompiler:
     def display(self):
         if self._compiled_circuit is None:
             raise NotCompiledError("The circuit hasn't been successfully compiled yet.")
-                    
+
         try:
-            
             if self._enforce_order:
 
                 N = sum(self._nb_qubits) + self._nb_ancillas
@@ -205,26 +214,18 @@ class PfoqCompiler:
             self._functions[child.children[0].value] = child
 
         graph = self._compute_call_graph()
-        #nx.draw(graph, with_labels =True)
-        #plt.show()
+
         components = list(nx.strongly_connected_components(graph))
         for index, value in enumerate(components):
             for name in value:
                 self._mutually_recursive_indices[name] = index
 
-        #this step stores a width parameter in the tree that controls the flow in optimize
+        # this step stores a width parameter in the tree that controls the flow in optimize
         for function in self._functions:
-           width = self._width_function(function)
-           if self._optimize_flag and width > 1:
-               print(f"Procedure {function} has width {width}. Turning off optimization.")
-               self._optimize_flag = False
-
-        # print(ast)
-
-        # print(components)
-        # nx.draw(graph, with_labels = True)
-        # plt.show()
-
+            width = self._width_function(function)
+            if self._optimize_flag and width > 1:
+                print(f"Procedure {function} has width {width}. Turning off optimization.")
+                self._optimize_flag = False
 
         program_statement = self._ast.children[-1]
 
@@ -236,42 +237,19 @@ class PfoqCompiler:
         if DEBUG:
             assert (register_definition.data == "def")
 
-        L = {reg.value : list(range(nb)) for reg, nb in zip(register_definition.children, self._nb_qubits)}
-        #print(L)
-        #L=list(range(self._nb_qubits))
-        self._qubit_registers = register_definition.children
+        L = {reg.value: list(range(nb)) for reg, nb in zip(register_definition.children, self._nb_qubits)}
 
+        self._qubit_registers = register_definition.children
 
         if DEBUG:
             assert (len(self._nb_qubits) == len(self._qubit_registers) )
 
-
         self._qr = [QuantumRegister(nb, name=f"{reg}") for reg, nb in zip(register_definition.children, self._nb_qubits)]
 
-
         qc = QuantumCircuit(*self._qr, self._ar)
-
         qc = qc.compose(self._compr_lstatement(ast=program_statement, L=L, cs={}, variables={}))
         
-        self._compiled_circuit = qc
-        #is this return necessary?
-        return self._compiled_circuit
-    
-    def _create_control_state(self, cs: dict):
-        """" Create control state from dictionary cs.
-
-        Parameters
-        ----------
-        cs : dict
-            Dictionary of qubit addresses and respective state
-
-        Examples
-        --------
-        >>> cs = {0:1, 2:1, 5:1}
-        >>> compiler = PfoqCompiler(program=prg)
-        >>> compiler._create_control_state(cs)    
-        """
-        return "".join(str(i) for _, i in reversed(sorted(cs.items())))
+        return qc
 
     def _compute_call_graph(self):
         initial_graph = nx.DiGraph()
@@ -332,7 +310,7 @@ class PfoqCompiler:
         
         if ast.children[1].data == "not_gate":
             qc = QuantumCircuit(*self._qr, self._ar)
-            qc.mcx(list(sorted(cs)),qubit,ctrl_state = self._create_control_state(cs))
+            qc.mcx(list(sorted(cs)),qubit,ctrl_state = _create_control_state(cs))
             return qc
         
         gate = self._compr_gate_expression(ast.children[1], L, cs, variables)
@@ -359,7 +337,7 @@ class PfoqCompiler:
 
         qc = QuantumCircuit(*self._qr, self._ar)
         if cs:
-            qc.mcx(list(sorted(cs)),qubit2, ctrl_state = self._create_control_state(cs))
+            qc.mcx(list(sorted(cs)),qubit2, ctrl_state = _create_control_state(cs))
             #qc.append(gate, list(sorted(cs)) + [qubit2])
             del cs[qubit1]
         return qc
@@ -830,11 +808,11 @@ class PfoqCompiler:
                     #                       base_gate=XGate())
 
 
-                    C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = self._create_control_state(cs))
+                    C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
                     #C_L.append(gate, list(sorted(cs)) + [ancilla])
 
                     circ = QuantumCircuit(*self._qr, self._ar)
-                    circ.mcx(list(sorted(cs)),ancilla, ctrl_state = self._create_control_state(cs))
+                    circ.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
                     C_R = circ.compose(C_R)
 
 
@@ -858,11 +836,11 @@ class PfoqCompiler:
                         if self._max_used_ancilla >= self._nb_ancillas:
                             raise AncillaIndexError("Not enough ancillas")
 
-                        C_L.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = self._create_control_state(cs))
+                        C_L.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = _create_control_state(cs))
                         #C_L.append(gate, list(sorted(cs)) + [starting_ancilla])
                         circ = QuantumCircuit(*self._qr, self._ar)
 
-                        circ.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = self._create_control_state(cs))
+                        circ.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = _create_control_state(cs))
                         #circ.append(gate, list(sorted(cs)) + [starting_ancilla])
                         C_R = circ.compose(C_R)
 
@@ -947,12 +925,12 @@ class PfoqCompiler:
                         #                       ctrl_state="".join(str(i) for _, i in reversed(sorted(cs.items()))),
                         #                       base_gate=XGate())
                         
-                        C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = self._create_control_state(cs))
+                        C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
 
                         #C_L.append(gate, list(sorted(cs)) + [ancilla])
 
                         circ = QuantumCircuit(*self._qr, self._ar)
-                        circ.mcx(list(sorted(cs)),ancilla, ctrl_state = self._create_control_state(cs))
+                        circ.mcx(list(sorted(cs)),ancilla, ctrl_state =_create_control_state(cs))
                         #circ.append(gate, list(sorted(cs)) + [ancilla])
                         C_R = circ.compose(C_R)
 
@@ -1134,10 +1112,45 @@ class PfoqCompiler:
         return self._compiled_circuit
 
 
+def _create_control_state(cs: dict[int, int]) -> str:
+    """ Create control state from dictionary cs.
+
+    Parameters
+    ----------
+    cs : dict
+        Dictionary of qubit addresses and respective state
+
+    Examples
+    --------
+    >>> cs = {0:1, 2:1, 5:0}
+    >>> _create_control_state(cs)
+    '011'
+    """
+    return "".join(str(i) for _, i in reversed(sorted(cs.items())))
 
 
+def count_gates(qc: QuantumCircuit) -> dict[Qubit, int]:
+    """ Count the number of gates applied to each qubit
 
-def count_gates(qc: QuantumCircuit) -> dict[int, int]:
+    Parameters
+    ----------
+    qc : QuantumCircuit
+        Quantum circuit to analyze
+
+    Examples
+    --------
+    >>> qc = QuantumCircuit(2)
+    >>> qc.h(0)
+    <...>
+    >>> qc.cx(0, 1)
+    <...>
+    >>> count = count_gates(qc)
+    >>> count[qc.qubits[0]]
+    2
+    >>> count[qc.qubits[1]]
+    1
+
+    """
     gate_count = {qubit: 0 for qubit in qc.qubits}
     for gate in qc.data:
         for qubit in gate.qubits:
