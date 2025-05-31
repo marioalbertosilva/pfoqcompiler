@@ -161,17 +161,22 @@ def indexket(string):
 
 
 if __name__ == '__main__':
-    program_tester = ProgramTester(program=open("pfoqcompiler/examples/pairs.pfoq", "r").read(),
-                                   inout={(7,): [("0"*7, "1"+"0"*6),
-                                                 ("1111101", "0"+"1"*6)],
-                                          (9,): [("0"*9, "1"+"0"*8),
-                                                 ("1"*9, "0"+"1"*8)]})
+
+    program_tester = ProgramTester(program=open("pfoqcompiler/examples/qcase_SWAP.pfoq", "r").read(),
+                                   inout={(4,): [("0000", "0000"), ("1000", "0010"), ("0101", "1100")]})
+
+
+    # program_tester = ProgramTester(program=open("pfoqcompiler/examples/qcase_CNOT.pfoq", "r").read(),
+    #                                inout={(7,): [("0"*7, "1"+"0"*6),
+    #                                              ("1111101", "0"+"1"*6)],
+    #                                       (9,): [("0"*9, "1"+"0"*8),
+    #                                              ("1"*9, "0"+"1"*8)]})
     
-    program_tester2 = ProgramTester(program=open("pfoqcompiler/examples/pairs_error.pfoq", "r").read(),
-                                    inout={(7,): [("0"*7, "1"+"0"*6),
-                                                  ("1111101", "0"+"1"*6)],
-                                           (9,): [("0"*9, "1"+"0"*8),
-                                                  ("1"*9, "0"+"1"*8)]})
+    # program_tester2 = ProgramTester(program=open("pfoqcompiler/examples/pairs_error.pfoq", "r").read(),
+    #                                 inout={(7,): [("0"*7, "1"+"0"*6),
+    #                                               ("1111101", "0"+"1"*6)],
+    #                                        (9,): [("0"*9, "1"+"0"*8),
+    #                                               ("1"*9, "0"+"1"*8)]})
 
     program_tester.run()
-    program_tester2.run()
+    #program_tester2.run()

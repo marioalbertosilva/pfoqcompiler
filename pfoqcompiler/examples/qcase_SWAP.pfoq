@@ -1,10 +1,8 @@
-:
+::
 define q;
 ::
 SWAP(q[1],q[-1]);
 qcase (q[2]) of {
-    0-> q[0] *= H;
-SWAP(q[0],q[1]);,
-1-> q[0] *= H;
-SWAP(q[0],q[1]);
+    0-> SWAP(q[0],q[1]);,
+    1-> SWAP(q[0],q[3]);
 }

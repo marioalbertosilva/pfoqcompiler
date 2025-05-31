@@ -15,7 +15,7 @@ from qiskit.circuit.library import HGate, XGate, CCXGate, SwapGate, RYGate, CPha
 from qiskit.circuit import Gate, ControlledGate, CircuitInstruction
 from qiskit.visualization import circuit_drawer
 import qiskit.qasm3
-from math import ceil
+from math import ceil, pi
 
 from pfoqcompiler.errors import WidthError, AncillaIndexError, NotCompiledError
 from pfoqcompiler.parser import PfoqParser
@@ -311,29 +311,98 @@ class PfoqCompiler:
         qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables)
         if qubit in cs:
             raise IndexError(f"Cannot apply gate on qubit {qubit} that is controlled on its state.")
-        
-        if ast.children[1].data == "not_gate":
-            qc = QuantumCircuit(*self._qr, self._ar)
-            qc.mcx(list(sorted(cs)),qubit,ctrl_state = _create_control_state(cs))
-            return qc
-        
-        gate = self._compr_gate_expression(ast.children[1], L, cs, variables)
+
         qc = QuantumCircuit(*self._qr, self._ar)
-        qc.append(gate, list(sorted(cs)) + [qubit])
+
+        gate_name = ast.children[1].data
+
+        match gate_name:
+
+            case "not_gate":
+                if cs: qc.mcx(list(sorted(cs)),qubit,ctrl_state = _create_control_state(cs))
+                else: qc.x(qubit)
+
+            case "hadamard_gate":
+                if cs:
+                    cH = ControlledGate(name="ch",
+                                        num_qubits=len(cs)+1,
+                                        params=HGate().params,
+                                        num_ctrl_qubits=len(cs),
+                                        definition=HGate().definition,
+                                        ctrl_state=_create_control_state(cs),
+                                        base_gate=HGate()) 
+                    
+                    qc.append(cH,list(sorted(cs)) + [qubit])
+                else:
+                    qc.h(qubit)
+            
+            case "rotation_gate":
+                theta = self._compr_int_expression(ast.children[0],L,cs,variables)
+                ry = RYGate(theta)
+                if cs:
+                    cRY = ControlledGate(name="cry",
+                                        num_qubits=len(cs)+1,
+                                        params=ry.params,
+                                        num_ctrl_qubits=len(cs),
+                                        definition=ry.definition,
+                                        ctrl_state=_create_control_state(cs),
+                                        base_gate=ry)
+                    qc.append(cRY,list(sorted(cs)) + [qubit])
+                else:
+                    qc.ry(theta, qubit)
+            
+            case "phase_shift_gate":
+                theta = self._compr_int_expression(ast.children[0],L,cs,variables)
+                if cs:
+                    qc.mcp(theta, list(sorted(cs)),qubit,ctrl_state = _create_control_state(cs))
+                else:
+                    qc.p(theta, qubit)
+
+            case "toffoli_gate":
+                
+                qubits = [self._compr_qubit_expression(ast.children[i], L, cs, variables) for i in range(3)]
+
+                for i in range(3):
+                    if qubits[i] in cs:
+                        raise IndexError(f"Cannot apply Toffoli on control qubit {qubits[i]}.")
+
+                qc = QuantumCircuit(*self._qr, self._ar)
+
+                qc.mcx(list(sorted(cs)) + qubits[:1], qubits[2], ctrl_state = "11" + _create_control_state(cs))
+
+            case "not_gate":
+
+                if cs: qc.mcx(list(sorted(cs)), qubit, ctrl_state=_create_control_state(cs))
+                else: qc.x(qubit)
+
+            case "other_gates":
+                gate_ast = ast.children[1]
+
+                if cs:
+                    gate = ControlledGate("C" + gate_ast.children[0].value[1:-1],
+                                        1 + len(cs),
+                                        [],
+                                        num_ctrl_qubits=len(cs),
+                                        ctrl_state="".join(
+                                            str(i) for _, i in reversed(sorted(cs.items()))),
+                                        base_gate=Gate(gate_ast.children[0].value[1:-1].format(**variables), 1, []))
+                    
+                else: gate = Gate(ast.children[0].value[1:-1], 1, [])
+
+                qc.append(gate,list(sorted(cs)) + [qubit])
+
+            case _:
+                raise ValueError(f"Unexpected gate value {gate_name}.")
+
+
         return qc
+
 
     def _compr_cnot_gate(self, ast, L, cs, variables):
         qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
         if qubit1 in cs:
             raise IndexError(f"Multiple controls on same qubit {qubit1}.")
         cs[qubit1] = 1
-        # gate = ControlledGate("CX",
-        #                       1 + len(cs),
-        #                       [],
-        #                       num_ctrl_qubits=len(cs),
-        #                       ctrl_state="".join(
-        #                           str(i) for _, i in reversed(sorted(cs.items()))),
-        #                       base_gate=XGate())
         qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
         if qubit2 in cs:
             raise IndexError(
@@ -342,7 +411,6 @@ class PfoqCompiler:
         qc = QuantumCircuit(*self._qr, self._ar)
         if cs:
             qc.mcx(list(sorted(cs)),qubit2, ctrl_state = _create_control_state(cs))
-            #qc.append(gate, list(sorted(cs)) + [qubit2])
             del cs[qubit1]
         return qc
 
@@ -358,14 +426,17 @@ class PfoqCompiler:
 
         qc = QuantumCircuit(*self._qr, self._ar)
 
+        swap = SwapGate()
+
         if cs:
-            gate = ControlledGate("CSWAP",
-                                  2 + len(cs),
-                                  [],
-                                  num_ctrl_qubits=len(cs),
-                                  ctrl_state="".join(
-                                      str(i) for _, i in reversed(sorted(cs.items()))),
-                                  base_gate=SwapGate())
+            gate = ControlledGate(name="cswap",
+                                    num_qubits=len(cs)+2,
+                                    params=swap.params,
+                                    num_ctrl_qubits=len(cs),
+                                    definition=swap.definition,
+                                    ctrl_state=_create_control_state(cs),
+                                    base_gate=swap)
+            
         else:
             gate = SwapGate()
 
@@ -382,24 +453,7 @@ class PfoqCompiler:
 
         qc = QuantumCircuit(*self._qr, self._ar)
 
-        if cs:
-            gate = ControlledGate("cx",
-                              3 + len(cs),
-                              [],
-                              num_ctrl_qubits=2+len(cs),
-                              ctrl_state="11"+"".join(
-                                  str(i) for _, i in reversed(sorted(cs.items()))),
-                              base_gate=XGate())
-            
-        else:
-            gate = ControlledGate("cx",
-                              3,
-                              [],
-                              num_ctrl_qubits=2,
-                              ctrl_state="11",
-                              base_gate=XGate())
-
-        qc.append(gate, list(sorted(cs)) + Q)
+        qc.mcx(list(sorted(cs)) + Q[:1], Q[2],ctrl_state="11"+_create_control_state(cs))
 
         return qc
 
@@ -610,79 +664,19 @@ class PfoqCompiler:
         else:
             raise NotImplementedError(f"Integer expression {ast.data} not yet handled.")
 
-    def _compr_gate_expression(self, ast, L, cs, variables):
-        # reversed(sorted(cs.items()))): Because qiskit indexes its qubits in the wrong order
-        if ast.data == "hadamard_gate":
-            if cs:
-                return ControlledGate("CH",
-                                      1 + len(cs),
-                                      [],
-                                      num_ctrl_qubits=len(cs),
-                                      ctrl_state="".join(
-                                          str(i) for _, i in reversed(sorted(cs.items()))),
-                                      base_gate=HGate())
-            return HGate()
-        
-        elif ast.data == "rotation_gate":
-            theta = self._compr_int_expression(ast.children[0],L,cs,variables)
-            if cs:
-                return ControlledGate("CRot",
-                                      1 + len(cs),
-                                      [],
-                                      num_ctrl_qubits=len(cs),
-                                      ctrl_state="".join(
-                                          str(i) for _, i in reversed(sorted(cs.items()))),
-                                      base_gate=RYGate(theta=theta, label=f"R{theta}"))
-            return RYGate(theta=theta,label=f"R{theta}")
-        
-        elif ast.data == "phase_shift_gate":
-            theta = self._compr_int_expression(ast.children[0],L,cs,variables)
-            if cs:
-                return CPhaseGate(theta=theta,
-                                  ctrl_state="".join(
-                                           str(i) for _, i in reversed(sorted(cs.items())))
-                                  )
-            return PhaseGate(theta=theta,label=f"Ph({theta})")
-        
-        elif ast.data == "toffoli_gate":
-
-            q1 = self._compr_int_expression(ast.children[0],L,cs,variables)
-            q2 = self._compr_int_expression(ast.children[1],L,cs,variables)
-            q3 = self._compr_int_expression(ast.children[2],L,cs,variables)
-
-            if cs:
-                return ControlledGate("mcx",
-                                      3,
-                                      [],
-                                      num_ctrl_qubits = 2,
-                                      ctrl_state="".join(
-                                          str(i) for _, i in reversed(sorted(cs.items()))),
-                                      base_gate=XGate())
-            return XGate()
-        
-        elif ast.data == "not_gate":
-            if cs:
-                return ControlledGate("mcx",
-                                      1 + len(cs),
-                                      [],
-                                      num_ctrl_qubits=len(cs),
-                                      ctrl_state="".join(
-                                          str(i) for _, i in reversed(sorted(cs.items()))),
-                                      base_gate=XGate())
-            return XGate()
-        
-        elif ast.data == "other_gates":
-            if cs:
-                return ControlledGate("C" + ast.children[0].value[1:-1],
-                                      1 + len(cs),
-                                      [],
-                                      num_ctrl_qubits=len(cs),
-                                      ctrl_state="".join(
-                                          str(i) for _, i in reversed(sorted(cs.items()))),
-                                      base_gate=Gate(ast.children[0].value[1:-1].format(**variables), 1, []))
-            return Gate(ast.children[0].value[1:-1], 1, [])
-        else:
-            raise ValueError(f"Unexpected gate value {ast.data}.")
+    # def _compr_gate_expression(self, ast, L, cs, variables):
+    #     if ast.data == "other_gates":
+    #         if cs:
+    #             return ControlledGate("C" + ast.children[0].value[1:-1],
+    #                                   1 + len(cs),
+    #                                   [],
+    #                                   num_ctrl_qubits=len(cs),
+    #                                   ctrl_state="".join(
+    #                                       str(i) for _, i in reversed(sorted(cs.items()))),
+    #                                   base_gate=Gate(ast.children[0].value[1:-1].format(**variables), 1, []))
+    #         return Gate(ast.children[0].value[1:-1], 1, [])
+    #     else:
+    #         raise ValueError(f"Unexpected gate value {ast.data}.")
 
     #PARTIAL ORDERING ON INPUTS
     def _input_ordering(self,x):
