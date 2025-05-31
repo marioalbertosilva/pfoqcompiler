@@ -370,10 +370,25 @@ class PfoqCompiler:
 
                 qc.mcx(list(sorted(cs)) + qubits[:1], qubits[2], ctrl_state = "11" + _create_control_state(cs))
 
-            case "not_gate":
+            case "cnot_gate":
 
-                if cs: qc.mcx(list(sorted(cs)), qubit, ctrl_state=_create_control_state(cs))
-                else: qc.x(qubit)
+                qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
+                if qubit1 in cs:
+                    raise IndexError(f"Multiple controls on same qubit {qubit1}.")
+                
+                cs[qubit1] = 1
+
+                qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
+
+                if qubit2 in cs:
+                    raise IndexError(
+                        f"Cannot apply gate on qubit {qubit2} that is controlled on its state.")
+                
+                qc.mcx(list(sorted(cs)),qubit2, ctrl_state = _create_control_state(cs))
+                
+                del cs[qubit1]
+
+                return qc
 
             case "other_gates":
                 gate_ast = ast.children[1]
