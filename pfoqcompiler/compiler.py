@@ -93,6 +93,7 @@ class PfoqCompiler:
         self._parser = PfoqParser()
         self._nb_qubits = nb_qubits
         self._nb_ancillas = nb_ancillas
+        self._nb_total_wires: int = sum(self._nb_qubits) + self._nb_ancillas
         self._qr = []
         self._ar = AncillaRegister(self._nb_ancillas, name="|0\\rangle")
         self._functions = {}
@@ -1121,6 +1122,7 @@ class PfoqCompiler:
             if count == 0 and type(qubit) != qiskit.circuit.Qubit:
                 qc_out.qubits.remove(qubit)
                 self._nb_ancillas -= 1
+                self._nb_total_wires -= 1
         self._compiled_circuit = qc_out
         return self._compiled_circuit
 
@@ -1300,6 +1302,7 @@ if __name__ == "__main__":
         compiler.parse()
         compiler.compile()
 
+        print(compiler._nb_total_wires)
         #print(simulate_statevector_outcomes(compiler._compiled_circuit))
 
         if args.save:

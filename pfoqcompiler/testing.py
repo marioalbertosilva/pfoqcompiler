@@ -135,8 +135,8 @@ class TestPFOQExecution(unittest.TestCase):
         if self.compiler.compiled_circuit is None:
             self.skipTest("Unsuccessful compilation")
             return
-        self.input = manageinout(self.input, self.compiler.compiled_circuit)
-        self.output = manageinout(self.output, self.compiler.compiled_circuit)
+        self.input = manageinout(self.input, self.compiler)
+        self.output = manageinout(self.output, self.compiler)
 
     def test_exec(self):
 
@@ -145,9 +145,9 @@ class TestPFOQExecution(unittest.TestCase):
                         f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input)}, expected {sv_to_dict(self.output)}")
 
 
-def manageinout(inout, circ):
-    state = np.zeros(int(2**circ.num_qubits))
-    state[indexket(inout.zfill(circ.num_qubits))] = 1
+def manageinout(inout, compiler):
+    state = np.zeros(int(2**compiler.compiled_circuit.num_qubits))
+    state[indexket(inout.zfill(compiler._nb_total_wires))] = 1
 
     return Statevector(state)
 
@@ -162,7 +162,7 @@ def indexket(string):
 
 if __name__ == '__main__':
 
-    program_tester = ProgramTester(program=open("pfoqcompiler/examples/qcase_SWAP.pfoq", "r").read(),
+    program_tester = ProgramTester(program=open("examples/qcase_SWAP.pfoq", "r").read(),
                                    inout={(4,): [("0000", "0000"), ("1000", "0010"), ("0101", "1100")]})
 
 
