@@ -2,8 +2,8 @@
 define q;
 ::
 qcase (q[2]) of {
-    0-> q[0] *= H;
+    0-> q[0] *= NOT;
 CNOT(q[0],q[1]);,
-1-> q[0] *= H;
+1-> q[0] *= NOT;
 CNOT(q[0],q[1]);
 }

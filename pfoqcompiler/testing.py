@@ -162,16 +162,25 @@ def indexket(string):
 
 if __name__ == '__main__':
 
+
     program_tester = ProgramTester(program=open("examples/qcase_SWAP.pfoq", "r").read(),
-                                   inout={(4,): [("0000", "0000"), ("1000", "0001"), ("0101", "1100"), ("0101","1100"),("0010","1000")]})
+                                   inout={(4,): [("0000", "0000"),   ("1000", "0001"),   ("0101", "1100"),  ("0101","1100"),  ("0010","1000")],
+                                          (5,): [("00000", "00000"), ("10000", "00001"), ("00101", "01100"),("00101","01100"),("00010","10000")]})
 
 
-    # program_tester = ProgramTester(program=open("pfoqcompiler/examples/qcase_CNOT.pfoq", "r").read(),
-    #                                inout={(7,): [("0"*7, "1"+"0"*6),
-    #                                              ("1111101", "0"+"1"*6)],
-    #                                       (9,): [("0"*9, "1"+"0"*8),
-    #                                              ("1"*9, "0"+"1"*8)]})
+    program_tester2 = ProgramTester(program=open("examples/qcase_CNOT.pfoq", "r").read(),
+                                   inout={(3,): [("000", "011"), ("001", "000"), ("010", "001"), ("011", "010"), ("100", "111"), ("101", "100"), ("110", "101"), ("111", "110")]} )
     
+
+    def pairs(x):
+        if len(x)>1:
+            if x[0]==x[1]: return pairs(x[2:])
+            else: return 0
+        return int(not len(x))
+
+    program_tester3 = ProgramTester(program=open("examples/pairs.pfoq", "r").read(),
+                                   inout={(3,): [((x:=bin(i)[2:]+"0")[::-1], (x+str(pairs(x)))[::-1]) for i in range(2**3)]})
+
     # program_tester2 = ProgramTester(program=open("pfoqcompiler/examples/pairs_error.pfoq", "r").read(),
     #                                 inout={(7,): [("0"*7, "1"+"0"*6),
     #                                               ("1111101", "0"+"1"*6)],
@@ -179,4 +188,5 @@ if __name__ == '__main__':
     #                                               ("1"*9, "0"+"1"*8)]})
 
     program_tester.run()
-    #program_tester2.run()
+    program_tester2.run()
+    program_tester3.run()
