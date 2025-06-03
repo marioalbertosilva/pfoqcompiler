@@ -163,7 +163,7 @@ def indexket(string):
 if __name__ == '__main__':
 
     program_tester = ProgramTester(program=open("examples/qcase_SWAP.pfoq", "r").read(),
-                                   inout={(4,): [("0000", "0000"), ("1000", "0010"), ("0101", "1100")]})
+                                   inout={(4,): [("0000", "0000"), ("1000", "0001"), ("0101", "1100"), ("0101","1100"),("0010","1000")]})
 
 
     # program_tester = ProgramTester(program=open("pfoqcompiler/examples/qcase_CNOT.pfoq", "r").read(),

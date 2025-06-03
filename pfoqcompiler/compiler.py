@@ -325,13 +325,9 @@ class PfoqCompiler:
 
             case "hadamard_gate":
                 if cs:
-                    cH = ControlledGate(name="ch",
-                                        num_qubits=len(cs)+1,
-                                        params=HGate().params,
-                                        num_ctrl_qubits=len(cs),
-                                        definition=HGate().definition,
-                                        ctrl_state=_create_control_state(cs),
-                                        base_gate=HGate()) 
+                    cH = HGate().control(num_ctrl_qubits=len(cs),
+                                         label="H",
+                                        ctrl_state=_create_control_state(cs))
                     
                     qc.append(cH,list(sorted(cs)) + [qubit])
                 else:
@@ -341,13 +337,9 @@ class PfoqCompiler:
                 theta = self._compr_int_expression(ast.children[0],L,cs,variables)
                 ry = RYGate(theta)
                 if cs:
-                    cRY = ControlledGate(name="cry",
-                                        num_qubits=len(cs)+1,
-                                        params=ry.params,
-                                        num_ctrl_qubits=len(cs),
-                                        definition=ry.definition,
-                                        ctrl_state=_create_control_state(cs),
-                                        base_gate=ry)
+                    cRY = ry.control(num_ctrl_qubits=len(cs),
+                                        label=f"Ry({theta})",
+                                        ctrl_state=_create_control_state(cs))
                     qc.append(cRY,list(sorted(cs)) + [qubit])
                 else:
                     qc.ry(theta, qubit)
@@ -395,13 +387,9 @@ class PfoqCompiler:
                 gate_ast = ast.children[1]
 
                 if cs:
-                    gate = ControlledGate("C" + gate_ast.children[0].value[1:-1],
-                                        1 + len(cs),
-                                        [],
-                                        num_ctrl_qubits=len(cs),
-                                        ctrl_state="".join(
-                                            str(i) for _, i in reversed(sorted(cs.items()))),
-                                        base_gate=Gate(gate_ast.children[0].value[1:-1].format(**variables), 1, []))
+                    cH = HGate().control(num_ctrl_qubits=len(cs),
+                                        label="C" + gate_ast.children[0].value[1:-1],
+                                        ctrl_state=_create_control_state(cs))
                     
                 else: gate = Gate(ast.children[0].value[1:-1], 1, [])
 
@@ -445,14 +433,9 @@ class PfoqCompiler:
         swap = SwapGate()
 
         if cs:
-            gate = ControlledGate(name="cswap",
-                                    num_qubits=len(cs)+2,
-                                    params=swap.params,
-                                    num_ctrl_qubits=len(cs),
-                                    definition=swap.definition,
-                                    ctrl_state=_create_control_state(cs),
-                                    base_gate=swap)
-            
+            gate = swap.control(num_ctrl_qubits=len(cs),
+                                label=None,
+                                ctrl_state=_create_control_state(cs))
         else:
             gate = SwapGate()
 
@@ -1301,9 +1284,6 @@ if __name__ == "__main__":
                                 old_optimize=args.old_optimize)
         compiler.parse()
         compiler.compile()
-
-        print(compiler._nb_total_wires)
-        #print(simulate_statevector_outcomes(compiler._compiled_circuit))
 
         if args.save:
             compiler.save()
