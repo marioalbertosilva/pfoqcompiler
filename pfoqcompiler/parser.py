@@ -40,8 +40,8 @@ qubit_expression: REGISTER_IDENTIFIER "[" int_expression "]"                    
 | parenthesed_register_expression "[" int_expression "]"                                    -> qubit_expression_parenthesed
 gate_expression: "H"                                                                        -> hadamard_gate
 | "NOT"                                                                                     -> not_gate
-| "Rot(" int_expression ")"                                                                 -> rotation_gate
-| "Ph(" int_expression ")"                                                                  -> phase_shift_gate
+| "Rot" "[" LAMBDA_EXPR "]"  "(" int_expression ")"                                         -> rotation_gate
+| "Ph" "[" LAMBDA_EXPR "]" "(" int_expression ")"                                           -> phase_shift_gate
 |  STRING_LITERAL                                                                           -> other_gates
 int_expression : SIGNED_NUMBER                                                              -> int_expression_literal
 |  INT_IDENTIFIER                                                                           -> int_expression_identifier
@@ -68,6 +68,7 @@ STRING_LITERAL : "\"" /[a-zA-Z][a-zA-Z0-9{}]*/ "\""
 REGISTER_IDENTIFIER : /(q|p|r)[0-9]*/
 PROC_IDENTIFIER : /[a-zA-Z][a-zA-Z_0-9]*/
 INT_IDENTIFIER : /x[0-9]*/
+LAMBDA_EXPR : "lambda" /[^:\[\]]+/ ":" /[^:\[\]]+/
 OPBIN : /[+-]/
 %import common.WS
 %import common.SIGNED_NUMBER

@@ -15,7 +15,7 @@ decl rot[x](q){
     if(|q|>1)then{
         qcase(q[1]) of {
             0->skip;,
-            1->q[0] *= "R{x}";
+            1->q[0] *= Ph[lambda x:pi/(2**x)](x-1);
         }
     call rot[x+1](q-[1]);
     }else{skip;}

@@ -334,18 +334,34 @@ class PfoqCompiler:
                     qc.h(qubit)
             
             case "rotation_gate":
-                theta = self._compr_int_expression(ast.children[0],L,cs,variables)
+
+                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables) #integer input given to gate
+
+                if len(ast.children[1].children) == 2: 
+
+                    func = ast.children[1].children[0] #function parameter given as string
+                    theta = eval(func)(theta)
+
                 ry = RYGate(theta)
+
                 if cs:
                     cRY = ry.control(num_ctrl_qubits=len(cs),
                                         label=f"Ry({theta})",
                                         ctrl_state=_create_control_state(cs))
+                    
                     qc.append(cRY,list(sorted(cs)) + [qubit])
                 else:
                     qc.ry(theta, qubit)
             
             case "phase_shift_gate":
-                theta = self._compr_int_expression(ast.children[0],L,cs,variables)
+
+                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables) #integer input given to gate
+
+                if len(ast.children[1].children) == 2: 
+
+                    func = ast.children[1].children[0] #function parameter given as string
+                    theta = eval(func)(theta)
+
                 if cs:
                     qc.mcp(theta, list(sorted(cs)),qubit,ctrl_state = _create_control_state(cs))
                 else:
@@ -639,7 +655,6 @@ class PfoqCompiler:
             raise NotImplementedError(f"Boolean expression {ast.data} not yet handled.")
 
     def _compr_int_expression(self, ast, L, cs, variables):
-
         if ast.data == "int_expression_literal":
             return int(ast.children[0].value)
         elif ast.data == "binary_op":
