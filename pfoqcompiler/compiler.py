@@ -72,6 +72,7 @@ class PfoqCompiler:
                  optimize_flag: bool = True,
                  old_optimize: bool = False,
                  debug_flag : bool = False,
+                 verbose_flag : bool = False,
                  barriers: bool = False,
                  _ast: Optional[lark.Tree] = None):
 
@@ -105,6 +106,7 @@ class PfoqCompiler:
         self._compiled_circuit = None
         self._optimize_flag = optimize_flag
         self._debug_flag = debug_flag
+        self._verbose_flag = verbose_flag
         self._old_optimize = old_optimize
         self._enforce_order = barriers
 
@@ -130,8 +132,107 @@ class PfoqCompiler:
                     print(f"Parsing of file {self._filename} failed due to:")
             raise exception
 
-        if DEBUG:
-            print("Program parsed successfully!")
+        if self._verbose_flag:
+            print(f"Program {self._filename} parsed successfully.")
+
+    
+
+    def verify(self):
+        """Statically check the following properties:
+        - Well-foundedness: all cycles in the call graph reduce the number of accessible qubits
+        - Halving (subsumes well-foundedness): all cycles in the call graph reduce by half some input qubit list
+        - Bounded-width: recursive procedure calls occur on orthogonal computation branches   
+        """
+
+        if self._verbose_flag:
+            print("\nProperties:")
+
+        if len(self._ast.children) == 0:
+            raise RuntimeWarning("Empty program")
+
+        for child in self._ast.children[:-2]:
+            if DEBUG:
+                assert child.data == "decl"
+            self._functions[child.children[0].value] = child
+
+        graph = self._compute_call_graph()
+
+        if self._debug_flag:
+            nx.draw(graph)
+
+        components = list(nx.strongly_connected_components(graph))
+        for index, value in enumerate(components):
+            for name in value:
+                self._mutually_recursive_indices[name] = index
+
+
+        # Well foundedness check
+
+        zero_weight_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) == 0]
+
+        zero_weight_subgraph = nx.DiGraph()
+        zero_weight_subgraph.add_nodes_from(graph.nodes())
+        zero_weight_subgraph.add_edges_from(zero_weight_edges)
+
+        well_founded = True
+
+        try:
+            zero_cycle = nx.find_cycle(zero_weight_subgraph)
+            well_founded = False
+
+        except nx.NetworkXNoCycle:
+            pass
+
+        if well_founded:
+            if self._verbose_flag:
+                print("- Well-founded")
+        else:
+            raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:", zero_cycle)
+
+
+        # HALVING check
+
+        #create call subgraph without -2 edges
+        minus_two_excluded_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) >= -1]
+
+        minus_two_excluded_subgraph = nx.DiGraph()          # preserves DiGraph vs Graph
+        minus_two_excluded_subgraph.add_nodes_from(graph.nodes())
+        minus_two_excluded_subgraph.add_edges_from(minus_two_excluded_edges)
+
+
+        halving = True
+
+        try:
+            minus_two_avoiding_cycle = nx.find_cycle(minus_two_excluded_subgraph)
+            halving = False
+
+        except nx.NetworkXNoCycle:
+            pass
+
+        if halving:
+            if self._verbose_flag:
+                print("- Halving")
+        else:
+            if self._verbose_flag:
+                print("- NOT halving. The following call cycle does not reduce qubits by half:", minus_two_avoiding_cycle)
+
+
+        # WIDTH <= 1 check
+        # this step stores a width parameter in the tree that controls the flow in optimize
+        for function in self._functions:
+            width = self._width_function(function)
+            if width <= 1 and self._verbose_flag:
+                print(f"- Bounded width: {width}")
+                
+
+            if self._optimize_flag and width > 1:
+                print(f"Procedure {function} has width {width}. Turning off optimization.")
+                self._optimize_flag = False
+
+
+
+
+    
 
     def compile(self, remove_idle_wires: bool = True):
         """Compile the program.
@@ -140,8 +241,6 @@ class PfoqCompiler:
 
         Parameters
         ----------
-        optimize : bool
-            Whether an optimiztion routine should be used.
         remove_idle_wires : bool
             Whether to unused ancilla qubits from the output.
 
@@ -171,15 +270,15 @@ class PfoqCompiler:
                 self._max_used_ancilla = -1
 
             except Exception as exception:
-                if DEBUG:
+                if self._debug_flag:
                     if self._filename is None:
                         print("Compilation of program failed due to:")
                     else:
                         print(f"Compilation of file {self._filename} failed due to:")
                 raise exception
 
-        if DEBUG:
-            print(f"# ancillas = {self._nb_ancillas}.", flush=True)
+        if self._verbose_flag:
+            print(f"\nCompiled circuit using {self._nb_ancillas} ancillas", flush=True)
 
     def save(self, filename: str):
         if self._compiled_circuit is None:
@@ -209,86 +308,7 @@ class PfoqCompiler:
             raise exception
 
     def _compr_prg(self) -> QuantumCircuit:
-        if DEBUG:
-            print("let's go!")
-
-        if len(self._ast.children) == 0:
-            raise RuntimeWarning("Empty program")
-
-        for child in self._ast.children[:-2]:
-            if DEBUG:
-                assert child.data == "decl"
-            self._functions[child.children[0].value] = child
-
-        graph = self._compute_call_graph()
         
-        print(graph.edges(data=True))
-
-        nx.draw(graph)
-
-        components = list(nx.strongly_connected_components(graph))
-        for index, value in enumerate(components):
-            for name in value:
-                self._mutually_recursive_indices[name] = index
-
-
-        # Well foundedness check
-
-        #create call subgraph of weight zero
-        zero_weight_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) == 0]
-
-        zero_weight_subgraph = nx.DiGraph()          # preserves DiGraph vs Graph
-        zero_weight_subgraph.add_nodes_from(graph.nodes())
-        zero_weight_subgraph.add_edges_from(zero_weight_edges)
-
-        well_founded = True
-
-        try:
-            zero_cycle = nx.find_cycle(zero_weight_subgraph)
-            well_founded = False
-
-        except nx.NetworkXNoCycle:
-            pass
-
-        if well_founded:
-            print("Program is well-founded!")
-        else:
-            raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:", zero_cycle)
-
-
-        # HALVING check
-
-        #create call subgraph without -2 edges
-        minus_two_excluded_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) >= -1]
-
-        minus_two_excluded_subgraph = nx.DiGraph()          # preserves DiGraph vs Graph
-        minus_two_excluded_subgraph.add_nodes_from(graph.nodes())
-        minus_two_excluded_subgraph.add_edges_from(minus_two_excluded_edges)
-
-
-        halving = True
-
-        try:
-            minus_two_avoiding_cycle = nx.find_cycle(minus_two_excluded_subgraph)
-            halving = False
-
-        except nx.NetworkXNoCycle:
-            pass
-
-        if halving:
-            print("Program is halving!")
-        else:
-            print("Program is not halving. The following call cycle does not reduce qubits by half:", minus_two_avoiding_cycle)
-
-
-        # WIDTH <= 1 check
-        # this step stores a width parameter in the tree that controls the flow in optimize
-        for function in self._functions:
-            width = self._width_function(function)
-            if self._optimize_flag and width > 1:
-                print(f"Procedure {function} has width {width}. Turning off optimization.")
-                self._optimize_flag = False
-
 
         program_statement = self._ast.children[-1]
 
@@ -1235,11 +1255,8 @@ def _create_call_graph(call_graph: nx.DiGraph, f: str, g: Union[lark.Tree, lark.
     if isinstance(g, lark.Tree):
 
         if g.data == "procedure_call":
-            print(g,"\n")
 
             proc_identifier = g.children[0].value
-
-            #check for integer input
 
             qubit_difference = 0
 
@@ -1384,6 +1401,11 @@ if __name__ == "__main__":
                         default=False)
     
     parser.add_argument('--debug', action=argparse.BooleanOptionalAction,
+                        help='Output debugging information.' \
+                        'Defaults to \'False\'.',
+                        default=False)
+    
+    parser.add_argument('--verbose', action=argparse.BooleanOptionalAction,
                         help='Output more informtion about the compilation,' \
                         'including statically verified properties.' \
                         'Defaults to \'False\'.',
@@ -1403,8 +1425,13 @@ if __name__ == "__main__":
                                 optimize_flag=args.optimize,
                                 barriers=args.barriers,
                                 old_optimize=args.old_optimize,
-                                debug_flag = args.debug)
+                                debug_flag = args.debug,
+                                verbose_flag = args.verbose)
+        
+
         compiler.parse()
+
+        compiler.verify()
 
         compiler.compile()
 
