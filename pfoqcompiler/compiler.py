@@ -17,7 +17,7 @@ from qiskit.visualization import circuit_drawer
 import qiskit.qasm3
 from math import ceil, pi
 
-from pfoqcompiler.errors import WidthError, AncillaIndexError, NotCompiledError
+from pfoqcompiler.errors import WellFoundedError, WidthError, AncillaIndexError, NotCompiledError
 from pfoqcompiler.parser import PfoqParser
 
 
@@ -71,6 +71,7 @@ class PfoqCompiler:
                  nb_ancillas: int = 1,
                  optimize_flag: bool = True,
                  old_optimize: bool = False,
+                 debug_flag : bool = False,
                  barriers: bool = False,
                  _ast: Optional[lark.Tree] = None):
 
@@ -103,6 +104,7 @@ class PfoqCompiler:
         self._ast = None
         self._compiled_circuit = None
         self._optimize_flag = optimize_flag
+        self._debug_flag = debug_flag
         self._old_optimize = old_optimize
         self._enforce_order = barriers
 
@@ -118,10 +120,10 @@ class PfoqCompiler:
         try:
             self._ast = self._parser.parse(self._program)
 
-            if DEBUG:
+            if self._debug_flag:
                 print(self._ast)
         except Exception as exception:
-            if DEBUG:
+            if self._debug_flag:
                 if self._filename is None:
                     print("Parsing of program failed due to:")
                 else:
@@ -163,7 +165,7 @@ class PfoqCompiler:
                 break
             except AncillaIndexError:
                 self._nb_ancillas *= 2
-                if DEBUG:
+                if self._debug_flag:
                     print(f"Insufficient ancillas, doubling ({self._nb_ancillas})", flush=True)
                 self._ar = AncillaRegister(self._nb_ancillas, name="|0\\rangle")
                 self._max_used_ancilla = -1
@@ -219,18 +221,48 @@ class PfoqCompiler:
             self._functions[child.children[0].value] = child
 
         graph = self._compute_call_graph()
+        
+        nx.draw(graph)
 
         components = list(nx.strongly_connected_components(graph))
         for index, value in enumerate(components):
             for name in value:
                 self._mutually_recursive_indices[name] = index
 
+
+        # Well foundedness check
+
+        #create call subgraph of weight zero
+        zero_weight_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) == 0]
+
+        zero_weight_subgraph = nx.DiGraph()          # preserves DiGraph vs Graph
+        zero_weight_subgraph.add_nodes_from(graph.nodes())
+        zero_weight_subgraph.add_edges_from(zero_weight_edges)
+
+        well_founded = True
+
+        try:
+            zero_cycle = nx.find_cycle(zero_weight_subgraph)
+            well_founded = False
+
+        except nx.NetworkXNoCycle:
+            pass
+
+        if well_founded:
+            print("Program is well-founded!")
+        else:
+            raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:", zero_cycle)
+
+
+
+        # WIDTH <= 1 check
         # this step stores a width parameter in the tree that controls the flow in optimize
         for function in self._functions:
             width = self._width_function(function)
             if self._optimize_flag and width > 1:
                 print(f"Procedure {function} has width {width}. Turning off optimization.")
                 self._optimize_flag = False
+
 
         program_statement = self._ast.children[-1]
 
@@ -268,6 +300,7 @@ class PfoqCompiler:
         for child in ast.children:
             qc = qc.compose(self._compr_statement(child, L, cs, variables))
         return qc
+
 
     def _compr_statement(self, ast, L, cs, variables):
         if ast.data == "gate_application":
@@ -1172,13 +1205,43 @@ def count_gates(qc: QuantumCircuit) -> dict[Qubit, int]:
 
 
 def _create_call_graph(call_graph: nx.DiGraph, f: str, g: Union[lark.Tree, lark.Token]):
-    if isinstance(g, lark.Token):
-        if g.type == "PROC_IDENTIFIER":
-            call_graph.add_edge(f, g.value)
-        return
-    for child in g.children:
-        _create_call_graph(call_graph, f, child)
+
+    if isinstance(g, lark.Tree):
+
+        if g.data == "procedure_call":
+
+            proc_identifier = g.children[0].value
+            input_qubits = g.children[-1]
+
+            qubit_difference = _determine_qubit_difference(input_qubits)
+            # either 0 or -1 to indicate qubit removal
+            # 0: no qubits removed, -1: at least one qubit removed
+
+            call_graph.add_edge(f, proc_identifier, weight = qubit_difference)
+    
+        for child in g.children:
+            _create_call_graph(call_graph, f, child)
+            
     return
+
+
+def _determine_qubit_difference(g: Union[lark.Tree, lark.Token]):
+    
+    if isinstance(g, lark.Tree):
+
+        if g.data in ["register_expression_minus",
+                      "register_expression_parenthesed_first_half",
+                      "register_expression_parenthesed_second_half"]:
+            return -1
+        
+        else:
+            return min(_determine_qubit_difference(child) for child in g.children)
+
+    return 0
+
+
+
+
 
 
 def _merging_transpositions(first_reg, second_reg) -> list[list[list[int]]]:
@@ -1282,6 +1345,12 @@ if __name__ == "__main__":
                         help='Determines whether or not to use compile or compileplus.' \
                         'Defaults to \'False\', where compileplus is used.',
                         default=False)
+    
+    parser.add_argument('--debug', action=argparse.BooleanOptionalAction,
+                        help='Output more informtion about the compilation,' \
+                        'including statically verified properties.' \
+                        'Defaults to \'False\'.',
+                        default=False)
 
     args = parser.parse_args()
 
@@ -1296,8 +1365,10 @@ if __name__ == "__main__":
                                 nb_qubits=args.inputsizes,
                                 optimize_flag=args.optimize,
                                 barriers=args.barriers,
-                                old_optimize=args.old_optimize)
+                                old_optimize=args.old_optimize,
+                                debug_flag = args.debug)
         compiler.parse()
+
         compiler.compile()
 
         if args.save:
