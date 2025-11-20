@@ -166,7 +166,7 @@ class PfoqCompiler:
             except AncillaIndexError:
                 self._nb_ancillas *= 2
                 if self._debug_flag:
-                    print(f"Insufficient ancillas, doubling ({self._nb_ancillas})", flush=True)
+                    print(f"Insufficient ancillas, doubling number to {self._nb_ancillas}", flush=True)
                 self._ar = AncillaRegister(self._nb_ancillas, name="|0\\rangle")
                 self._max_used_ancilla = -1
 
@@ -222,6 +222,8 @@ class PfoqCompiler:
 
         graph = self._compute_call_graph()
         
+        print(graph.edges(data=True))
+
         nx.draw(graph)
 
         components = list(nx.strongly_connected_components(graph))
@@ -253,6 +255,30 @@ class PfoqCompiler:
         else:
             raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:", zero_cycle)
 
+
+        # HALVING check
+
+        #create call subgraph without -2 edges
+        minus_two_excluded_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) >= -1]
+
+        minus_two_excluded_subgraph = nx.DiGraph()          # preserves DiGraph vs Graph
+        minus_two_excluded_subgraph.add_nodes_from(graph.nodes())
+        minus_two_excluded_subgraph.add_edges_from(minus_two_excluded_edges)
+
+
+        halving = True
+
+        try:
+            minus_two_avoiding_cycle = nx.find_cycle(minus_two_excluded_subgraph)
+            halving = False
+
+        except nx.NetworkXNoCycle:
+            pass
+
+        if halving:
+            print("Program is halving!")
+        else:
+            print("Program is not halving. The following call cycle does not reduce qubits by half:", minus_two_avoiding_cycle)
 
 
         # WIDTH <= 1 check
@@ -1209,13 +1235,20 @@ def _create_call_graph(call_graph: nx.DiGraph, f: str, g: Union[lark.Tree, lark.
     if isinstance(g, lark.Tree):
 
         if g.data == "procedure_call":
+            print(g,"\n")
 
             proc_identifier = g.children[0].value
-            input_qubits = g.children[-1]
 
-            qubit_difference = _determine_qubit_difference(input_qubits)
-            # either 0 or -1 to indicate qubit removal
-            # 0: no qubits removed, -1: at least one qubit removed
+            #check for integer input
+
+            qubit_difference = 0
+
+            for input in g.children[1::]:
+
+                if "register_expression" in input.data:
+
+                    qubit_difference = min(qubit_difference,_determine_qubit_difference(input))
+                    
 
             call_graph.add_edge(f, proc_identifier, weight = qubit_difference)
     
@@ -1229,10 +1262,14 @@ def _determine_qubit_difference(g: Union[lark.Tree, lark.Token]):
     
     if isinstance(g, lark.Tree):
 
-        if g.data in ["register_expression_minus",
-                      "register_expression_parenthesed_first_half",
+        if g.data in ["register_expression_parenthesed_first_half",
                       "register_expression_parenthesed_second_half"]:
-            return -1
+            
+            return -2
+
+        elif g.data in ["register_expression_minus"]:
+
+            return min(-1, min(_determine_qubit_difference(child) for child in g.children)) 
         
         else:
             return min(_determine_qubit_difference(child) for child in g.children)
