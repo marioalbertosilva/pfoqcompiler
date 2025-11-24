@@ -133,7 +133,7 @@ class PfoqCompiler:
             raise exception
 
         if self._verbose_flag:
-            print(f"Program {self._filename} parsed successfully.")
+            print(f"File \'{self._filename}\' parsed successfully.")
 
     
 
@@ -195,7 +195,7 @@ class PfoqCompiler:
         #create call subgraph without -2 edges
         minus_two_excluded_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) >= -1]
 
-        minus_two_excluded_subgraph = nx.DiGraph()          # preserves DiGraph vs Graph
+        minus_two_excluded_subgraph = nx.DiGraph()
         minus_two_excluded_subgraph.add_nodes_from(graph.nodes())
         minus_two_excluded_subgraph.add_edges_from(minus_two_excluded_edges)
 
@@ -203,7 +203,7 @@ class PfoqCompiler:
         halving = True
 
         try:
-            minus_two_avoiding_cycle = nx.find_cycle(minus_two_excluded_subgraph)
+            minus_two_avoiding_cycle = list(nx.find_cycle(minus_two_excluded_subgraph)[0])
             halving = False
 
         except nx.NetworkXNoCycle:
@@ -214,15 +214,17 @@ class PfoqCompiler:
                 print("- Halving")
         else:
             if self._verbose_flag:
-                print("- NOT halving. The following call cycle does not reduce qubits by half:", minus_two_avoiding_cycle)
+                print("- NOT halving. An example call cycle that does not reduce qubits by half:",
+                      " -> ".join(minus_two_avoiding_cycle))
 
 
         # WIDTH <= 1 check
         # this step stores a width parameter in the tree that controls the flow in optimize
+        max_width = 0
+
         for function in self._functions:
             width = self._width_function(function)
-            if width <= 1 and self._verbose_flag:
-                print(f"- Bounded width: {width}")
+            max_width = max(width,max_width)
                 
 
             if self._optimize_flag and width > 1:
@@ -230,6 +232,8 @@ class PfoqCompiler:
                 self._optimize_flag = False
 
 
+        if max_width <= 1 and self._verbose_flag:
+            print(f"- Bounded width: {max_width}")
 
 
     
@@ -330,7 +334,7 @@ class PfoqCompiler:
         self._qr = [QuantumRegister(nb, name=f"{reg}") for reg, nb in zip(register_definition.children, self._nb_qubits)]
 
         qc = QuantumCircuit(*self._qr, self._ar)
-        qc = qc.compose(self._compr_lstatement(ast=program_statement, L=L, cs={}, variables={}))
+        qc = qc.compose(self._compr_lstatement(ast=program_statement, L=L, cs={}, variables={}, cqubits = {}))
         
         return qc
 
@@ -341,45 +345,52 @@ class PfoqCompiler:
             _create_call_graph(initial_graph, f, g)
         return initial_graph
 
-    def _compr_lstatement(self, ast, L, cs, variables):
+    def _compr_lstatement(self, ast, L, cs, variables, cqubits):
         qc = QuantumCircuit(*self._qr, self._ar)
         for child in ast.children:
-            qc = qc.compose(self._compr_statement(child, L, cs, variables))
+            qc = qc.compose(self._compr_statement(child, L, cs, variables, cqubits))
         return qc
 
 
-    def _compr_statement(self, ast, L, cs, variables):
+    def _compr_statement(self, ast, L, cs, variables, cqubits):
         if ast.data == "gate_application":
-            return self._compr_gate_application(ast, L, cs, variables)
+            return self._compr_gate_application(ast, L, cs, variables, cqubits)
         elif ast.data == "cnot_gate":
-            return self._compr_cnot_gate(ast, L, cs, variables)
+            return self._compr_cnot_gate(ast, L, cs, variables, cqubits)
         elif ast.data == "swap_gate":
-            return self._compr_swap_gate(ast, L, cs, variables)
+            return self._compr_swap_gate(ast, L, cs, variables, cqubits)
         elif ast.data == "toffoli_gate":
-            return self._compr_toffoli_gate(ast, L, cs, variables)
+            return self._compr_toffoli_gate(ast, L, cs, variables, cqubits)
         elif ast.data == "if_statement":
-            if self._compr_boolean_expression(ast.children[0], L, cs, variables):
-                return self._compr_lstatement(ast.children[1], L, cs, variables)
+            if self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits):
+                return self._compr_lstatement(ast.children[1], L, cs, variables, cqubits)
             elif len(ast.children) == 3:
-                return self._compr_lstatement(ast.children[2], L, cs, variables)
+                return self._compr_lstatement(ast.children[2], L, cs, variables, cqubits)
             else:
                 return QuantumCircuit(*self._qr, self._ar)
         elif ast.data == "qcase_statement":
-            q = self._compr_qubit_expression(ast.children[0], L, cs, variables)
-            if q in cs:
+            q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+            if q in cqubits:
                 raise IndexError(f"Already controlling on the state of qubit {q}.")
             circuit = QuantumCircuit(*self._qr, self._ar)
+
             cs[q] = 0
+            cqubits[q] = 0
+
             circuit = circuit.compose(self._compr_lstatement(ast.children[1], L,
-                                                             cs, variables))
+                                                             cs, variables, cqubits))
             cs[q] = 1
+            cqubits[q] = 1
+
             circuit = circuit.compose(self._compr_lstatement(ast.children[2], L,
-                                                             cs, variables))
+                                                             cs, variables, cqubits))
             del cs[q]
+            del cqubits[q]
+
             return circuit
 
         elif ast.data == "procedure_call":
-            return self._compr_procedure_call(ast, L, cs, variables)
+            return self._compr_procedure_call(ast, L, cs, variables, cqubits)
 
         elif ast.data == "skip_statement":
             return QuantumCircuit(*self._qr, self._ar)
@@ -387,9 +398,10 @@ class PfoqCompiler:
         else:
             raise NotImplementedError(f"Statement {ast.data} not yet handled.")
 
-    def _compr_gate_application(self, ast, L, cs, variables):
-        qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables)
-        if qubit in cs:
+    def _compr_gate_application(self, ast, L, cs, variables, cqubits):
+        qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+
+        if qubit in cqubits:
             raise IndexError(f"Cannot apply gate on qubit {qubit} that is controlled on its state.")
 
         qc = QuantumCircuit(*self._qr, self._ar)
@@ -414,7 +426,7 @@ class PfoqCompiler:
             
             case "rotation_gate":
 
-                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables) #integer input given to gate
+                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables,cqubits) #integer input given to gate
 
                 if len(ast.children[1].children) == 2: 
 
@@ -434,7 +446,7 @@ class PfoqCompiler:
             
             case "phase_shift_gate":
 
-                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables) #integer input given to gate
+                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables,cqubits) #integer input given to gate
 
                 if len(ast.children[1].children) == 2: 
 
@@ -460,13 +472,13 @@ class PfoqCompiler:
 
             case "cnot_gate":
 
-                qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
+                qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables,cqubits)
                 if qubit1 in cs:
                     raise IndexError(f"Multiple controls on same qubit {qubit1}.")
                 
                 cs[qubit1] = 1
 
-                qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
+                qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables,cqubits)
 
                 if qubit2 in cs:
                     raise IndexError(
@@ -497,30 +509,40 @@ class PfoqCompiler:
         return qc
 
 
-    def _compr_cnot_gate(self, ast, L, cs, variables):
-        qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
-        if qubit1 in cs:
+    def _compr_cnot_gate(self, ast, L, cs, variables, cqubits):
+        qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+        if qubit1 in cqubits:
             raise IndexError(f"Multiple controls on same qubit {qubit1}.")
+        
         cs[qubit1] = 1
-        qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
-        if qubit2 in cs:
+        cqubits[qubit1] = 1
+
+        qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+
+        if qubit2 in cqubits:
             raise IndexError(
                 f"Cannot apply gate on qubit {qubit2} that is controlled on its state.")
 
         qc = QuantumCircuit(*self._qr, self._ar)
-        if cs:
-            qc.mcx(list(sorted(cs)),qubit2, ctrl_state = _create_control_state(cs))
-            del cs[qubit1]
-        return qc
 
-    def _compr_swap_gate(self, ast, L, cs, variables):
-        qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
-        if qubit1 in cs:
+
+        qc.mcx(list(sorted(cs)),qubit2, ctrl_state = _create_control_state(cs))
+        
+        del cs[qubit1]
+        del cqubits[qubit1]
+
+        return qc
+    
+
+
+    def _compr_swap_gate(self, ast, L, cs, variables, cqubits):
+        qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+        if qubit1 in cqubits:
             raise IndexError(f"Cannot swap control qubit {qubit1}.")
         
-        qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
+        qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
         
-        if qubit2 in cs:
+        if qubit2 in cqubits:
             raise IndexError(f"Cannot swap control qubit {qubit2}.")
 
         qc = QuantumCircuit(*self._qr, self._ar)
@@ -537,12 +559,12 @@ class PfoqCompiler:
         qc.append(gate, list(sorted(cs)) + [qubit1, qubit2])
         return qc
     
-    def _compr_toffoli_gate(self, ast, L, cs, variables):
+    def _compr_toffoli_gate(self, ast, L, cs, variables, cqubits):
 
         Q = [self._compr_qubit_expression(ast.children[i], L, cs, variables) for i in range(3)]
 
         for i in range(3):
-            if Q[i] in cs:
+            if Q[i] in cqubits:
                 raise IndexError(f"Cannot apply Toffoli on control qubit {Q[i]}.")
 
         qc = QuantumCircuit(*self._qr, self._ar)
@@ -551,7 +573,7 @@ class PfoqCompiler:
 
         return qc
 
-    def _compr_procedure_call(self, ast, L, cs, variables):
+    def _compr_procedure_call(self, ast, L, cs, variables, cqubits):
         proc_identifier = ast.children[0].value
         if proc_identifier not in self._functions:
             raise NameError(f"Called function {proc_identifier} was not declared.")
@@ -574,7 +596,7 @@ class PfoqCompiler:
         int_parameter = None
 
         if len(ast.children) > 1 + len(L):
-            int_parameter = self._compr_int_expression(ast.children[1], L, cs, variables)
+            int_parameter = self._compr_int_expression(ast.children[1], L, cs, variables, cqubits)
 
         if (function_parameter is None) ^ (int_parameter is None):
             raise (ValueError(
@@ -589,11 +611,11 @@ class PfoqCompiler:
 
         if new_L:
             if self._optimize_flag and self._width_function(proc_identifier) == 1:
-                l_CST = [(cs, self._functions[proc_identifier].children[-1], new_L, variables)]
+                l_CST = [(cs, self._functions[proc_identifier].children[-1], new_L, variables, cqubits)]
                 return self._optimize(l_CST)
 
             circ = self._compr_lstatement(
-                self._functions[proc_identifier].children[-1], new_L, cs, variables)
+                self._functions[proc_identifier].children[-1], new_L, cs, variables, cqubits)
             if int_parameter is not None:
                 if old_value is None:
                     del variables[function_parameter]
@@ -603,7 +625,7 @@ class PfoqCompiler:
         return QuantumCircuit(*self._qr, self._ar)
 
     # EXPRESSIONS (Registers, Booleans, Integers, Gates)
-    def _compr_qubit_expression(self, ast, L, cs, variables):
+    def _compr_qubit_expression(self, ast, L, cs, variables, cqubits):
 
         #determine qubit_register_name
         
@@ -617,7 +639,7 @@ class PfoqCompiler:
 
         elif ast.data == "qubit_expression_parenthesed":
             qubit_list = self._compr_parenthesed_register_expression(
-                ast.children[0], L, cs, variables)
+                ast.children[0], L, cs, variables, cqubits)
         else:
             raise NotImplementedError(
                 f"Qubit expression {ast.data} not yet handled.")
@@ -725,7 +747,7 @@ class PfoqCompiler:
             raise NotImplementedError(
                 f"Register expression {ast.data} not yet handled:")
 
-    def _compr_boolean_expression(self, ast, L, cs, variables):
+    def _compr_boolean_expression(self, ast, L, cs, variables,cqubits):
         if ast.data == "bool_literal":
             return ast.children[0].value == "true"
         elif ast.data == "bool_greater_than":
@@ -782,48 +804,49 @@ class PfoqCompiler:
         l_M = []
 
         while l_CST:
-            cs, ast, L, variables = l_CST.pop(0)
+            if len(l_CST[0]) != 5: print(l_CST[0])
+            cs, ast, L, variables, cqubits = l_CST.pop(0)
 
             if ast.data == "lstatement":
                 before = True
                 for child in ast.children:
                     if child.width == 0:
                         if before:
-                            C_L = C_L.compose(self._compr_statement(child, L, cs, variables))
+                            C_L = C_L.compose(self._compr_statement(child, L, cs, variables, cqubits))
                         else:
-                            C_R = self._compr_statement(child, L, cs, variables).compose(C_R)
+                            C_R = self._compr_statement(child, L, cs, variables, cqubits).compose(C_R)
                     else:
                         before = False
-                        l_CST.append((cs, child, L, variables))
+                        l_CST.append((cs, child, L, variables, cqubits))
 
             elif ast.data == "if_statement":
-                guard = self._compr_boolean_expression(ast.children[0], L, cs, variables)
+                guard = self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits)
 
                 if guard:
 
                     if ast.children[1].width:
-                        l_CST.append((cs, ast.children[1], L, variables))
+                        l_CST.append((cs, ast.children[1], L, variables, cqubits))
 
                     elif self._old_optimize:
-                        C_R = self._compr_lstatement(ast.children[1], L, cs, variables).compose(C_R)
+                        C_R = self._compr_lstatement(ast.children[1], L, cs, variables, cqubits).compose(C_R)
 
                     else:                            
-                        l_M.append((cs, ast.children[1], L, variables))
+                        l_M.append((cs, ast.children[1], L, variables, cqubits))
 
                 elif len(ast.children) == 3:
 
                     if ast.children[2].width:
-                        l_CST.append((cs, ast.children[2], L, variables))
+                        l_CST.append((cs, ast.children[2], L, variables, cqubits))
 
                     elif self._old_optimize:
-                        C_R = self._compr_lstatement(ast.children[2], L, cs, variables).compose(C_R)      
+                        C_R = self._compr_lstatement(ast.children[2], L, cs, variables, cqubits).compose(C_R)      
 
                     else:  
-                        l_M.append((cs, ast.children[2], L, variables))
+                        l_M.append((cs, ast.children[2], L, variables, cqubits))
 
             elif ast.data == "qcase_statement":
-                q = self._compr_qubit_expression(ast.children[0], L, cs, variables)
-                if q in cs:
+                q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+                if q in cqubits:
                     raise IndexError(
                         f"Already controlling on the state of qubit {q}.")
 
@@ -831,25 +854,30 @@ class PfoqCompiler:
                 cs_0[q] = 0
                 cs_1[q] = 1
 
+                cqubits_0, cqubits_1 = cqubits.copy(), cqubits.copy()
+                cqubits_0[q] = 0
+                cqubits_1[q] = 1
+
+
                 if ast.children[1].width:
-                    l_CST.append((cs_0, ast.children[1], L, variables))
+                    l_CST.append((cs_0, ast.children[1], L, variables,cqubits_0))
 
                 elif self._old_optimize:
-                    C_R = self._compr_lstatement(ast.children[1], L, cs_0, variables).compose(C_R)      
+                    C_R = self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits,cqubits_1).compose(C_R)      
                 
                 else:
-                    l_M.append((cs_0, ast.children[1], L, variables))
+                    l_M.append((cs_0, ast.children[1], L, variables, cqubits))
 
 
 
                 if ast.children[2].width:
-                    l_CST.append((cs_1, ast.children[2], L, variables))
+                    l_CST.append((cs_1, ast.children[2], L, variables, cqubits))
 
                 elif self._old_optimize:
-                    C_R = self._compr_lstatement(ast.children[2], L, cs_1, variables).compose(C_R) 
+                    C_R = self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits).compose(C_R) 
 
                 else:           
-                    l_M.append((cs_1, ast.children[2], L, variables))
+                    l_M.append((cs_1, ast.children[2], L, variables, cqubits))
 
             elif ast.data == "procedure_call":
                 
@@ -1026,10 +1054,10 @@ class PfoqCompiler:
                         C_R = circ.compose(C_R)
 
                         l_CST.append(
-                            ({ancilla: 1}, self._functions[proc_identifier].children[-1], new_L, variables))
+                            ({ancilla: 1}, self._functions[proc_identifier].children[-1], new_L, variables, cqubits))
                     else:
                         l_CST.append(
-                            ({}, self._functions[proc_identifier].children[-1], new_L, variables))
+                            ({}, self._functions[proc_identifier].children[-1], new_L, variables, cqubits))
 
             else:
                 raise NotImplementedError(
@@ -1062,9 +1090,9 @@ class PfoqCompiler:
             C_M = QuantumCircuit(*self._qr, self._ar)
 
 
-            for (cs, ast, L, variables) in l_M:
+            for (cs, ast, L, variables,cqubits) in l_M:
 
-                for index, value in enumerate(self._sequential_split(cs, ast, L, variables)):
+                for index, value in enumerate(self._sequential_split(cs, ast, L, variables, cqubits)):
                     
                     try:
                         l_M_split[index].append(value)
@@ -1079,8 +1107,8 @@ class PfoqCompiler:
                 for index, value in enumerate(rec_split):
                     # non-recursive
                     if index == 0:
-                        for (cs, ast, L, variables) in value:
-                            C_M = C_M.compose(self._compr_statement(ast, L, cs, variables))
+                        for (cs, ast, L, variables, cqubits) in value:
+                            C_M = C_M.compose(self._compr_statement(ast, L, cs, variables, cqubits))
                     else:
                         C_M = C_M.compose(self._optimize(value))
 
@@ -1094,42 +1122,50 @@ class PfoqCompiler:
 
 
     # CONTEXTUAL LIST
-    def _sequential_split(self, cs, ast, L, variables):
+    def _sequential_split(self, cs, ast, L, variables, cqubits):
         if ast.data == "lstatement":
             seq = []
             for child in ast.children:
-                sub_statements = self._sequential_split(cs, child, L, variables)
+                sub_statements = self._sequential_split(cs, child, L, variables, cqubits)
                 if sub_statements:
-                    seq.extend(self._sequential_split(cs, child, L, variables))
+                    seq.extend(self._sequential_split(cs, child, L, variables, cqubits))
             return seq
 
         if ast.data == "skip_statement":
             return []
 
         elif ast.data in ["gate_application", "cnot_gate", "swap_gate", "toffoli_gate"]:
-            return [(cs, ast, L, variables)]
+            return [(cs, ast, L, variables, cqubits)]
 
         elif ast.data == "if_statement":
-            if self._compr_boolean_expression(ast.children[0], L, cs, variables):
-                return self._sequential_split(cs, ast.children[1], L, variables)
+            if self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits):
+                return self._sequential_split(cs, ast.children[1], L, variables, cqubits)
             elif len(ast.children) == 3:
-                return self._sequential_split(cs, ast.children[2], L,variables)
+                return self._sequential_split(cs, ast.children[2], L,variables, cqubits)
             else:
                 return []
 
         elif ast.data == "qcase_statement":
-            q = self._compr_qubit_expression(ast.children[0], L, cs, variables)
-            if q in cs:
+            q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+            if q in cqubits:
                 raise IndexError(f"Already controlling on the state of qubit {q}.")
             
             cs0, cs1 = cs.copy(), cs.copy()
             cs0[q] = 0
             cs1[q] = 1
 
-            return self._sequential_split(cs0, ast.children[1], L, variables) + self._sequential_split(cs1, ast.children[2], L, variables)
+            cqubits0, cqubits1 = cs.copy(), cs.copy()
+            cqubits0[q] = 0
+            cqubits1[q] = 1
+
+            return self._sequential_split(cs0,
+                                          ast.children[1],
+                                          L,
+                                          variables,
+                                          cqubits0) + self._sequential_split(cs1, ast.children[2], L, variables, cqubits1)
 
         elif ast.data == "procedure_call":
-            return [(cs, ast, L, variables)]
+            return [(cs, ast, L, variables, cqubits)]
 
         else:
             raise ValueError(f"Statement {ast.data} not treated in sequential_split")
@@ -1137,15 +1173,15 @@ class PfoqCompiler:
     def _recursive_split(self, L):
         m = max([v for k, v in self._mutually_recursive_indices.items()]) + 2
         split = [[] for i in range(m)]
-        for (cs, ast, L, variables) in L:
+        for (cs, ast, L, variables, cqubits) in L:
             if ast.data == "procedure_call":
                 proc_identifier = ast.children[0].value
                 if self._width_function(proc_identifier) != 0:
-                    split[self._mutually_recursive_indices[proc_identifier] + 1].append((cs, ast, L, variables))
+                    split[self._mutually_recursive_indices[proc_identifier] + 1].append((cs, ast, L, variables, cqubits))
                 else:
-                    split[0].append((cs, ast, L, variables))
+                    split[0].append((cs, ast, L, variables, cqubits))
             else:
-                split[0].append((cs, ast, L, variables))
+                split[0].append((cs, ast, L, variables, cqubits))
         return split
 
     def _width_function(self, function_name):
