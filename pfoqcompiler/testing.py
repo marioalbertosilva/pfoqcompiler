@@ -114,6 +114,7 @@ class TestPFOQCompilation(unittest.TestCase):
 
     def test_compile(self):
         self.assertIsNotNone(self.compiler.ast)
+        self.compiler.verify()
         self.compiler.compile()
 
 
@@ -172,21 +173,33 @@ if __name__ == '__main__':
                                    inout={(3,): [("000", "011"), ("001", "000"), ("010", "001"), ("011", "010"), ("100", "111"), ("101", "100"), ("110", "101"), ("111", "110")]} )
     
 
-    def pairs(x):
-        if len(x)>1:
-            if x[0]==x[1]: return pairs(x[2:])
-            else: return 0
-        return int(not len(x))
+    # def pairs(x):
+
+    #     if len(x) > 1:
+    #         if x[0]==x[1]: return pairs(x[2:])
+    #         else: return 0
+
+    #     elif len(x) == 1: return 0
+
+    #     return 1
+
+    # program_tester3 = ProgramTester(program=open("examples/pairs.pfoq", "r").read(),
+    #                                inout={(5,): [((bin(i)[2:]+"0")[::-1], (bin(i)[2:]+str(pairs(bin(i)[2:])))[::-1]) for i in range(2**5)]})
+
 
     program_tester3 = ProgramTester(program=open("examples/pairs.pfoq", "r").read(),
-                                   inout={(3,): [((x:=bin(i)[2:]+"0")[::-1], (x+str(pairs(x)))[::-1]) for i in range(2**3)]})
+                                   inout={(5,): [("00000","10000"), ("10000","00000"),
+                                                 ("00001","00001"), ("10001","10001"),
+                                                 ("00010","00010"), ("10010","10010"),
+                                                 ("00011","10011"), ("10011","00011")] })
 
-    # program_tester2 = ProgramTester(program=open("pfoqcompiler/examples/pairs_error.pfoq", "r").read(),
-    #                                 inout={(7,): [("0"*7, "1"+"0"*6),
-    #                                               ("1111101", "0"+"1"*6)],
-    #                                        (9,): [("0"*9, "1"+"0"*8),
-    #                                               ("1"*9, "0"+"1"*8)]})
 
+    print("Testing qcase_SWAP")
     program_tester.run()
+
+    print("Testing qcase_CNOT")
     program_tester2.run()
+
+    print("Testing pairs")
     program_tester3.run()
+

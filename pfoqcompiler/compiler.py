@@ -187,7 +187,8 @@ class PfoqCompiler:
             if self._verbose_flag:
                 print("- Well-founded")
         else:
-            raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:", zero_cycle)
+            raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:",
+                                   " -> ".join(zero_cycle))
 
 
         # HALVING check
