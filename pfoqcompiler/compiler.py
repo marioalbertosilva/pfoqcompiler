@@ -427,7 +427,7 @@ class PfoqCompiler:
             
             case "rotation_gate":
 
-                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables,cqubits) #integer input given to gate
+                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables) #integer input given to gate
 
                 if len(ast.children[1].children) == 2: 
 
@@ -447,7 +447,7 @@ class PfoqCompiler:
             
             case "phase_shift_gate":
 
-                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables,cqubits) #integer input given to gate
+                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables) #integer input given to gate
 
                 if len(ast.children[1].children) == 2: 
 
@@ -597,7 +597,7 @@ class PfoqCompiler:
         int_parameter = None
 
         if len(ast.children) > 1 + len(L):
-            int_parameter = self._compr_int_expression(ast.children[1], L, cs, variables, cqubits)
+            int_parameter = self._compr_int_expression(ast.children[1], L, cs, variables)
 
         if (function_parameter is None) ^ (int_parameter is None):
             raise (ValueError(
