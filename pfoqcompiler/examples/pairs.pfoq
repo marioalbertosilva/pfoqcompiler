@@ -2,7 +2,7 @@ decl pairs(a){
     if(|a|>2)then{
         qcase(a[0]) of {
             0->qcase(a[1]) of{
-                0->call pairs(a-[0,1]);,
+                0->call pairs((a-[|a|-|a|,1]));,
                 1->skip;
             },
             1->qcase(a[1]) of{
