@@ -1206,31 +1206,33 @@ class PfoqCompiler:
         return width
 
     def _width_statement(self, ast, function_name):
-        if ast.data == "gate_application":
-            return 0
-        elif ast.data == "cnot_gate":
-            return 0
-        elif ast.data == "swap_gate":
-            return 0
-        elif ast.data == "toffoli_gate":
-            return 0
-        elif ast.data == "if_statement":
-            if len(ast.children) == 3:
-                return max(self._width_lstatement(ast.children[1], function_name),
-                           self._width_lstatement(ast.children[2], function_name))
-            return self._width_lstatement(ast.children[1], function_name)
 
-        elif ast.data == "qcase_statement":
-            return max(self._width_lstatement(ast.children[1], function_name),
-                       self._width_lstatement(ast.children[2], function_name))
-        elif ast.data == "procedure_call":
-            return self._mutually_recursive_indices[function_name] == self._mutually_recursive_indices[ast.children[0].value]
+        match ast.data:
 
-        elif ast.data == "skip_statement":
-            return 0
+            case "skip_statement" | "gate_application" | "cnot_gate" | "swap_gate" | "toffoli_gate":
+                return 0
+            
+            case "if_statement":
+                if len(ast.children) == 3:
+                    return max(
+                            self._width_lstatement(ast.children[1], function_name),
+                            self._width_lstatement(ast.children[2], function_name))
+                
+                return self._width_lstatement(ast.children[1], function_name)
 
-        else:
-            raise NotImplementedError(f"Statement {ast.data} not yet handled.")
+            case "qcase_statement":
+                return max(
+                        self._width_lstatement(ast.children[1], function_name),
+                        self._width_lstatement(ast.children[2], function_name))
+            
+            case "procedure_call":
+                return self._mutually_recursive_indices[function_name] == self._mutually_recursive_indices[ast.children[0].value]
+
+            case _:
+                raise NotImplementedError(
+                    f"Statement {ast.data} not handled.")
+            
+
 
     # POST-TREATMENT: REMOVE IDLE ANCILLAS
     def remove_idle_wires(self):
