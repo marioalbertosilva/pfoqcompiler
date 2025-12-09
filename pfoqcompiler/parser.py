@@ -29,14 +29,14 @@ PFOQGRAMMAR = r"""
 boolean_expression: BOOLEAN_LITERAL                                                          -> bool_literal
                     | int_expression ">" int_expression                                      -> bool_greater_than
 register_expression: REGISTER_IDENTIFIER                                                     -> register_expression_identifier
+| REGISTER_VARIABLE                                                                          -> register_variable
 | parenthesed_register_expression                                                            -> register_expression_parenthesed
 | parenthesed_register_expression "^-"                                                       -> register_expression_parenthesed_first_half
 | parenthesed_register_expression "^+"                                                       -> register_expression_parenthesed_second_half
-#| REGISTER_IDENTIFIER "^-"                                                                   -> register_identifier_first_half
-#| REGISTER_IDENTIFIER "^+"                                                                   -> register_identifier_second_half
 | register_expression "-" "[" int_expression ("," int_expression)* "]"                       -> register_expression_minus
 parenthesed_register_expression : "(" register_expression ")"
 qubit_expression: REGISTER_IDENTIFIER "[" int_expression "]"                                -> qubit_expression_identifier
+| REGISTER_VARIABLE "[" int_expression "]"                                                  -> qubit_expression_variable
 | parenthesed_register_expression "[" int_expression "]"                                    -> qubit_expression_parenthesed
 gate_expression: "H"                                                                        -> hadamard_gate
 | "NOT"                                                                                     -> not_gate
@@ -60,12 +60,13 @@ statement : "call" PROC_IDENTIFIER ("[" int_expression "]")? "(" register_expres
 | "skip" ";"                                                                                      -> skip_statement
 lstatement : (statement)*
 def : "define" (REGISTER_IDENTIFIER)+ ";"
-decl : "decl" PROC_IDENTIFIER ("[" INT_IDENTIFIER "]")? "(" REGISTER_IDENTIFIER ("," REGISTER_IDENTIFIER)* ")" "{" lstatement "}"
+decl : "decl" PROC_IDENTIFIER ("[" INT_IDENTIFIER "]")? "(" REGISTER_VARIABLE ("," REGISTER_VARIABLE)* ")" "{" lstatement "}"
 prg : (decl)* "::" def "::" lstatement
 BOOLEAN_LITERAL: "true"
                 | "false"
 STRING_LITERAL : "\"" /[a-zA-Z][a-zA-Z0-9{}]*/ "\""
 REGISTER_IDENTIFIER : /(q|p|r)[0-9]*/
+REGISTER_VARIABLE : /(a|b|c)[0-9]*/
 PROC_IDENTIFIER : /[a-zA-Z][a-zA-Z_0-9]*/
 INT_IDENTIFIER : /x[0-9]*/
 LAMBDA_EXPR : "lambda" /[^:\[\]]+/ ":" /[^:\[\]]+/

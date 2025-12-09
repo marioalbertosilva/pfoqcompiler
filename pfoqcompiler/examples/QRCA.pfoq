@@ -1,16 +1,16 @@
-decl add(q,p,r){
-	TOF(q[-1],p[-1],r[-2]);
-	CNOT(q[-1],p[-1]);
-	TOF(p[-1],r[-1],r[-2]);
-	CNOT(p[-1],r[-1]);
-	CNOT(q[-1],p[-1]);	
+decl add(a,b,c){
+	TOF(a[-1],b[-1],c[-2]);
+	CNOT(a[-1],b[-1]);
+	TOF(b[-1],c[-1],c[-2]);
+	CNOT(b[-1],c[-1]);
+	CNOT(a[-1],b[-1]);	
 }
-decl full_adder(q,p,r){
-	if(|r|>1)then{
-	call add(q,p,r);
-	call full_adder(q-[-1],
-			p-[-1],
-			r-[-1]);
+decl full_adder(a,b,c){
+	if(|c|>1)then{
+	call add(a,b,c);
+	call full_adder(a-[-1],
+			b-[-1],
+			c-[-1]);
 	}
 }
 ::

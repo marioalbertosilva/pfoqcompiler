@@ -1,0 +1,12 @@
+decl f(a,b){
+	qcase (a[0]) of {
+	0 -> a[1] *= NOT;,
+	1 -> skip;
+	}
+	a[1] *= NOT;
+	b[0] *= H;
+}
+::
+define q r;
+::
+call f(q-[1],q);

@@ -1,12 +1,12 @@
-decl search(q,r){
-    if(|q|>1)then{
-        qcase(q[|q|/2-1]) of {
-            0->qcase(q[|q|/2]) of{
-                0->call search((q)^+ -[0],r);,
-                1->r[0] *=NOT;
+decl search(a,b){
+    if(|a|>1)then{
+        qcase(a[|a|/2-1]) of {
+            0->qcase(q[|a|/2]) of{
+                0->call search((a)^+ -[0],b);,
+                1->b[0] *=NOT;
             },
-            1->qcase(q[|q|/2]) of{
-                0->call search((q)^- -[-1],r);,
+            1->qcase(a[|a|/2]) of{
+                0->call search((a)^- -[-1],b);,
                 1-> skip;
             }
         }
