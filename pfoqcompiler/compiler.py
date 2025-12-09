@@ -372,50 +372,63 @@ class PfoqCompiler:
 
 
     def _compr_statement(self, ast, L, cs, variables, cqubits):
-        if ast.data == "gate_application":
-            return self._compr_gate_application(ast, L, cs, variables, cqubits)
-        elif ast.data == "cnot_gate":
-            return self._compr_cnot_gate(ast, L, cs, variables, cqubits)
-        elif ast.data == "swap_gate":
-            return self._compr_swap_gate(ast, L, cs, variables, cqubits)
-        elif ast.data == "toffoli_gate":
-            return self._compr_toffoli_gate(ast, L, cs, variables, cqubits)
-        elif ast.data == "if_statement":
-            if self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits):
-                return self._compr_lstatement(ast.children[1], L, cs, variables, cqubits)
-            elif len(ast.children) == 3:
-                return self._compr_lstatement(ast.children[2], L, cs, variables, cqubits)
-            else:
+
+        match ast.data:
+
+            case "gate_application":
+                return self._compr_gate_application(ast, L, cs, variables, cqubits)
+            
+            case "cnot_gate":
+                return self._compr_cnot_gate(ast, L, cs, variables, cqubits)
+            
+            case "swap_gate":
+                return self._compr_swap_gate(ast, L, cs, variables, cqubits)
+            
+            case "toffoli_gate":
+                return self._compr_toffoli_gate(ast, L, cs, variables, cqubits)
+            
+            case "if_statement":
+                if self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits):
+                    return self._compr_lstatement(ast.children[1], L, cs, variables, cqubits)
+                elif len(ast.children) == 3:
+                    return self._compr_lstatement(ast.children[2], L, cs, variables, cqubits)
+                else:
+                    return QuantumCircuit(*self._qr, self._ar)
+
+            case "qcase_statement":
+
+                q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+
+                if q in cqubits:
+                    raise IndexError(f"Already controlling on the state of qubit {q}.")
+                circuit = QuantumCircuit(*self._qr, self._ar)
+
+                cs[q] = 0
+                cqubits[q] = 0
+
+                circuit = circuit.compose(self._compr_lstatement(ast.children[1], L,
+                                                                cs, variables, cqubits))
+                cs[q] = 1
+                cqubits[q] = 1
+
+                circuit = circuit.compose(self._compr_lstatement(ast.children[2], L,
+                                                                cs, variables, cqubits))
+                del cs[q]
+                del cqubits[q]
+
+                return circuit
+
+            case "procedure_call":
+                return self._compr_procedure_call(ast, L, cs, variables, cqubits)
+
+            case "skip_statement":
                 return QuantumCircuit(*self._qr, self._ar)
-        elif ast.data == "qcase_statement":
-            q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
-            if q in cqubits:
-                raise IndexError(f"Already controlling on the state of qubit {q}.")
-            circuit = QuantumCircuit(*self._qr, self._ar)
 
-            cs[q] = 0
-            cqubits[q] = 0
+            case _:
+                raise NotImplementedError(
+                    f"Statement {ast.data} not handled.")
+            
 
-            circuit = circuit.compose(self._compr_lstatement(ast.children[1], L,
-                                                             cs, variables, cqubits))
-            cs[q] = 1
-            cqubits[q] = 1
-
-            circuit = circuit.compose(self._compr_lstatement(ast.children[2], L,
-                                                             cs, variables, cqubits))
-            del cs[q]
-            del cqubits[q]
-
-            return circuit
-
-        elif ast.data == "procedure_call":
-            return self._compr_procedure_call(ast, L, cs, variables, cqubits)
-
-        elif ast.data == "skip_statement":
-            return QuantumCircuit(*self._qr, self._ar)
-
-        else:
-            raise NotImplementedError(f"Statement {ast.data} not yet handled.")
 
     def _compr_gate_application(self, ast: lark.Tree, L, cs, variables, cqubits):
         qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
