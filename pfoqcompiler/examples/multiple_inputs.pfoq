@@ -1,9 +1,9 @@
 decl f(a,b){
     a[(|a|)/2]*=H;
     b[0]*=NOT;
-    call f((a)^+,b-[|q|-|a|]);
+    call f((a)^+,b-[0]);
 }
 ::
 define q r;
 ::
-call f(q,r);
+call f(q,q);

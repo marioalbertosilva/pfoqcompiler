@@ -417,7 +417,7 @@ class PfoqCompiler:
         else:
             raise NotImplementedError(f"Statement {ast.data} not yet handled.")
 
-    def _compr_gate_application(self, ast, L, cs, variables, cqubits):
+    def _compr_gate_application(self, ast: lark.Tree, L, cs, variables, cqubits):
         qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
 
         if qubit in cqubits:
@@ -761,35 +761,43 @@ class PfoqCompiler:
 
         return [qubit for index,qubit in enumerate(qubit_list) if index not in nonnegative_indices]
         
-        i = self._compr_int_expression(ast.children[1], L, cs, variables)
-        if i < 0:
-            i = len(qubit_list) + i
-        if i < 0 or i >= len(qubit_list):
-            return []
-        return qubit_list[:i] + qubit_list[i + 1:]
 
-    def _compr_register_expression(self, ast, L, cs, variables):
-        if ast.data == "register_expression_identifier":
-            return self._compr_register_identifier(ast, L, cs, variables)
-        elif ast.data == "register_variable":
-            return self._compr_register_variable(ast, L, cs, variables)
-        elif ast.data == "register_expression_parenthesed":
-            return self._compr_parenthesed_register_expression(ast, L, cs, variables)
-        elif ast.data == "parenthesed_register_expression":
-            return self._compr_parenthesed_register_expression(ast, L, cs, variables)
-        elif ast.data == "register_expression_minus":
-            return self._compr_register_expression_minus(ast, L, cs, variables)
-        elif ast.data == "register_expression_parenthesed_first_half":
-            return self._compr_parenthesed_register_expression_first_half(ast, L, cs, variables)
-        elif ast.data == "register_expression_parenthesed_second_half":
-            return self._compr_parenthesed_register_expression_second_half(ast, L, cs, variables)
-        elif ast.data == "register_identifier_first_half":
-            return self._compr_register_identifier_first_half(ast, L, cs, variables)
-        elif ast.data == "register_identifier_second_half":
-            return self._compr_register_identifier_second_half(ast, L, cs, variables)
-        else:
-            raise NotImplementedError(
-                f"Register expression {ast.data} not yet handled:")
+    def _compr_register_expression(self, *args):
+        """
+        args = (ast, L, cs, variables)
+
+        """
+
+        match args[0].data:
+
+            case "register_expression_identifier":
+                return self._compr_register_identifier(*args)
+            
+            case "register_variable":
+                return self._compr_register_variable(*args)
+            
+            case "register_expression_parenthesed" | "parenthesed_register_expression":
+                return self._compr_parenthesed_register_expression(*args)
+            
+            case "register_expression_minus":
+                return self._compr_register_expression_minus(*args)
+            
+            case "register_expression_parenthesed_first_half":
+                return self._compr_parenthesed_register_expression_first_half(*args)
+            
+            case "register_expression_parenthesed_second_half":
+                return self._compr_parenthesed_register_expression_second_half(*args)
+
+            case "register_identifier_first_half":
+                return self._compr_register_identifier_first_half(*args)
+            
+            case "register_identifier_second_half":
+                return self._compr_register_identifier_second_half(*args)
+            
+            case _:
+                raise NotImplementedError(
+                        f"Register expression {args[0]} not yet handled:")
+
 
     def _compr_boolean_expression(self, ast, L, cs, variables,cqubits):
         if ast.data == "bool_literal":
@@ -800,42 +808,47 @@ class PfoqCompiler:
             raise NotImplementedError(f"Boolean expression {ast.data} not yet handled.")
 
     def _compr_int_expression(self, ast, L, cs, variables):
-        if ast.data == "int_expression_literal":
-            return int(ast.children[0].value)
-        elif ast.data == "binary_op":
-            if ast.children[1].value == "+":
-                return int(self._compr_int_expression(ast.children[0], L, cs, variables) + self._compr_int_expression(ast.children[2], L, cs, variables))
-            elif ast.children[1].value == "-":
-                return int(self._compr_int_expression(ast.children[0], L, cs, variables) - self._compr_int_expression(ast.children[2], L, cs, variables))
-        elif ast.data == "size_of_register":
-            return len(self._compr_register_expression(ast.children[0], L, cs, variables))
-        elif ast.data == "int_expression_identifier":
-            variable_name = ast.children[0].value
-            if variable_name not in variables:
-                raise ValueError(f"Variable {variable_name} not defined.")
-            return variables[variable_name]
-        elif ast.data == "parenthesed_int_expression":
-            return self._compr_int_expression(ast.children[0], L, cs, variables)
-        elif ast.data == "parenthesed_int_expression_half":
-            return int(self._compr_int_expression(ast.children[0], L, cs, variables)/2)
-        elif ast.data == "int_expression_half_size":
-            return int(len(self._compr_register_expression(ast.children[0], L, cs, variables))/2)
-        else:
-            raise NotImplementedError(f"Integer expression {ast.data} not yet handled.")
 
-    # def _compr_gate_expression(self, ast, L, cs, variables):
-    #     if ast.data == "other_gates":
-    #         if cs:
-    #             return ControlledGate("C" + ast.children[0].value[1:-1],
-    #                                   1 + len(cs),
-    #                                   [],
-    #                                   num_ctrl_qubits=len(cs),
-    #                                   ctrl_state="".join(
-    #                                       str(i) for _, i in reversed(sorted(cs.items()))),
-    #                                   base_gate=Gate(ast.children[0].value[1:-1].format(**variables), 1, []))
-    #         return Gate(ast.children[0].value[1:-1], 1, [])
-    #     else:
-    #         raise ValueError(f"Unexpected gate value {ast.data}.")
+        match ast.data:
+
+            case "int_expression_literal":
+                return int(ast.children[0].value)
+            
+            case "binary_op":
+
+                if ast.children[1].value == "+":
+                    return int(self._compr_int_expression(ast.children[0], L, cs, variables)
+                               + self._compr_int_expression(ast.children[2], L, cs, variables))
+                
+                elif ast.children[1].value == "-":
+                    return int(self._compr_int_expression(ast.children[0], L, cs, variables)
+                               - self._compr_int_expression(ast.children[2], L, cs, variables))
+
+            case "size_of_register":
+                return len(self._compr_register_expression(ast.children[0], L, cs, variables))
+            
+            case "int_expression_identifier":
+
+                variable_name = ast.children[0].value
+
+                if variable_name not in variables:
+                    raise ValueError(f"Variable {variable_name} not defined.")
+                
+                return variables[variable_name]
+
+            case "parenthesed_int_expression":
+                return self._compr_int_expression(ast.children[0], L, cs, variables)
+
+            case "parenthesed_int_expression_half":
+                return int(self._compr_int_expression(ast.children[0], L, cs, variables)/2)
+            
+            case "int_expression_half_size":
+                return int(len(self._compr_register_expression(ast.children[0], L, cs, variables))/2)
+            
+            case _:
+                NotImplementedError(
+                    f"Integer expression {ast.data} not yet handled.")
+            
 
     #PARTIAL ORDERING ON INPUTS
     def _input_ordering(self,x):
@@ -972,12 +985,11 @@ class PfoqCompiler:
 
                     ancilla, anchored_L = Ancillas[(proc_identifier, reg_sizes, int_parameter)]
 
-                    print(list(sorted(cs)), ancilla, _create_control_state(cs))
-
                     C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
 
                     circ = QuantumCircuit(*self._qr, self._ar)
                     circ.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
+
                     C_R = circ.compose(C_R)
 
 
@@ -1128,52 +1140,62 @@ class PfoqCompiler:
 
     # CONTEXTUAL LIST
     def _sequential_split(self, cs, ast, L, variables, cqubits):
-        if ast.data == "lstatement":
-            seq = []
-            for child in ast.children:
-                sub_statements = self._sequential_split(cs, child, L, variables, cqubits)
-                if sub_statements:
-                    seq.extend(self._sequential_split(cs, child, L, variables, cqubits))
-            return seq
 
-        if ast.data == "skip_statement":
-            return []
+        match ast.data:
 
-        elif ast.data in ["gate_application", "cnot_gate", "swap_gate", "toffoli_gate"]:
-            return [(cs, ast, L, variables, cqubits)]
-
-        elif ast.data == "if_statement":
-            if self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits):
-                return self._sequential_split(cs, ast.children[1], L, variables, cqubits)
-            elif len(ast.children) == 3:
-                return self._sequential_split(cs, ast.children[2], L,variables, cqubits)
-            else:
-                return []
-
-        elif ast.data == "qcase_statement":
-            q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
-            if q in cqubits:
-                raise IndexError(f"Already controlling on the state of qubit {q}.")
+            case "lstatement":
+                seq = []
+                for child in ast.children:
+                    sub_statements = self._sequential_split(cs, child, L, variables, cqubits)
+                    if sub_statements:
+                        seq.extend(self._sequential_split(cs, child, L, variables, cqubits))
+                return seq
             
-            cs0, cs1 = cs.copy(), cs.copy()
-            cs0[q] = 0
-            cs1[q] = 1
+            case "skip_statement":
+                return []
+            
+            case "gate_application" | "cnot_gate" | "swap_gate" | "toffoli_gate":
+                return [(cs, ast, L, variables, cqubits)]
+            
+            case "if_statement":
 
-            cqubits0, cqubits1 = cs.copy(), cs.copy()
-            cqubits0[q] = 0
-            cqubits1[q] = 1
+                if self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits):
+                    return self._sequential_split(cs, ast.children[1], L, variables, cqubits)
+                
+                elif len(ast.children) == 3:
+                    return self._sequential_split(cs, ast.children[2], L,variables, cqubits)
+                
+                return []
+            
+            case "qcase_statement":
 
-            return self._sequential_split(cs0,
-                                          ast.children[1],
-                                          L,
-                                          variables,
-                                          cqubits0) + self._sequential_split(cs1, ast.children[2], L, variables, cqubits1)
+                q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
 
-        elif ast.data == "procedure_call":
-            return [(cs, ast, L, variables, cqubits)]
+                if q in cqubits:
+                    raise IndexError(
+                        f"Already controlling on the state of qubit {q}.")
+                
+                cs0, cs1 = cs.copy(), cs.copy()
+                cs0[q] = 0
+                cs1[q] = 1
 
-        else:
-            raise ValueError(f"Statement {ast.data} not treated in sequential_split")
+                cqubits0, cqubits1 = cs.copy(), cs.copy()
+                cqubits0[q] = 0
+                cqubits1[q] = 1
+
+                return self._sequential_split(cs0,
+                                            ast.children[1],
+                                            L,
+                                            variables,
+                                            cqubits0) + self._sequential_split(cs1, ast.children[2], L, variables, cqubits1)
+            
+            case "procedure_call":
+                return [(cs, ast, L, variables, cqubits)]
+            
+            case _:
+                raise ValueError(
+                    f"Statement {ast.data} not treated in sequential_split")
+    
 
     def _recursive_split(self, L):
         m = max([v for k, v in self._mutually_recursive_indices.items()]) + 2
@@ -1193,16 +1215,17 @@ class PfoqCompiler:
         return self._width_lstatement(self._functions[function_name].children[-1], function_name)
 
     def _width_lstatement(self, ast, function_name):
-        #print(ast,"\n")
+    
         width = 0
+
         for child in ast.children:
+
             width_child = self._width_statement(child, function_name)
             child.width = width_child
             width += width_child
-            # if self._optimize_flag and width >= 2:
-            #     print(f"Procedure {function_name} has width >1 and will be compiled without optimization.")
-            #     self._optimize_flag = False
+
         ast.width = width
+
         return width
 
     def _width_statement(self, ast, function_name):
