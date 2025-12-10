@@ -287,17 +287,29 @@ class PfoqCompiler:
                 raise exception
 
         if self._verbose_flag:
-            print(f"\nCompiled circuit using {self._nb_ancillas} ancillas", flush=True)
+            print(f"\nCompiled circuit using {self._nb_ancillas} anchoring and merging ancillas.", flush=True)
+            print("Circuit representation in file circuits/"
+                  + self._filename[:-5] + "_"
+                  + "_".join([str(i) for i in self._nb_qubits]) + ".pdf", flush=True)
 
-    def save(self, filename: str):
+    def save(self, filename: str) -> None:
+        """
+        Saves the compiled circuit in OpenQASM 3 format.
+        """
+
         if self._compiled_circuit is None:
-            raise NotCompiledError("The circuit hasn't been successfully compiled yet.")
+            raise NotCompiledError("The circuit hasn't been successfully compiled.")
+        
         with open(f"{filename}.qasm", "w") as f:
             qiskit.qasm3.dump(self._compiled_circuit, f)
 
-    def display(self):
+    def display(self) -> None:
+        """
+        Generates a circuit representation in matplotlib.
+        """
+
         if self._compiled_circuit is None:
-            raise NotCompiledError("The circuit hasn't been successfully compiled yet.")
+            raise NotCompiledError("The circuit hasn't been successfully compiled.")
 
         try:
             if self._enforce_order:
@@ -310,14 +322,21 @@ class PfoqCompiler:
                 
             circuit_drawer(self._compiled_circuit, output="mpl", style="bw",
                             fold=-1, plot_barriers=False)
-            plt.show()
+            #plt.show()
+
+            plt.savefig("circuits/" + self._filename[:-5] + "_" + "_".join([str(i) for i in self._nb_qubits]), format="pdf")
+
+
         except Exception as exception:
             if DEBUG:
                 print("Program has been successfully compiled, but could not be displayed due to:")
             raise exception
+        
 
     def _compr_prg(self) -> QuantumCircuit:
-        
+        """
+        Compiles program statement of the input program.
+        """
 
         program_statement = self._ast.children[-1]
 
@@ -357,21 +376,28 @@ class PfoqCompiler:
         
         return qc
 
-    def _compute_call_graph(self):
+
+    def _compute_call_graph(self) -> nx.DiGraph:
+        """
+        Generates the program call graph.
+        """
         initial_graph = nx.DiGraph()
         for f, g in self._functions.items():
             initial_graph.add_node(f)
             _create_call_graph(initial_graph, f, g)
         return initial_graph
 
-    def _compr_lstatement(self, ast, L, cs, variables, cqubits):
+    def _compr_lstatement(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
         qc = QuantumCircuit(*self._qr, self._ar)
         for child in ast.children:
             qc = qc.compose(self._compr_statement(child, L, cs, variables, cqubits))
         return qc
 
 
-    def _compr_statement(self, ast, L, cs, variables, cqubits):
+    def _compr_statement(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
+        """
+        Manages compilation of a PFOQ statement by calling different subfunctions.
+        """
 
         match ast.data:
 
@@ -430,7 +456,13 @@ class PfoqCompiler:
             
 
 
-    def _compr_gate_application(self, ast: lark.Tree, L, cs, variables, cqubits):
+    def _compr_gate_application(self,
+                                ast: lark.Tree,
+                                L: dict[str,list[int]],
+                                cs: dict[int,int],
+                                variables: dict[lark.Token,int],
+                                cqubits: dict[int,int]) -> QuantumCircuit:
+
         qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
 
         if qubit in cqubits:
@@ -541,7 +573,8 @@ class PfoqCompiler:
         return qc
 
 
-    def _compr_cnot_gate(self, ast, L, cs, variables, cqubits):
+    def _compr_cnot_gate(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
+
         qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
         if qubit1 in cqubits:
             raise IndexError(f"Multiple controls on same qubit {qubit1}.")
@@ -567,7 +600,8 @@ class PfoqCompiler:
     
 
 
-    def _compr_swap_gate(self, ast, L, cs, variables, cqubits):
+    def _compr_swap_gate(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
+
         qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
         if qubit1 in cqubits:
             raise IndexError(f"Cannot swap control qubit {qubit1}.")
@@ -591,7 +625,7 @@ class PfoqCompiler:
         qc.append(gate, list(sorted(cs)) + [qubit1, qubit2])
         return qc
     
-    def _compr_toffoli_gate(self, ast, L, cs, variables, cqubits):
+    def _compr_toffoli_gate(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
 
         Q = [self._compr_qubit_expression(ast.children[i], L, cs, variables, cqubits) for i in range(3)]
 
@@ -607,7 +641,7 @@ class PfoqCompiler:
 
         return qc
 
-    def _compr_procedure_call(self, ast, L, cs, variables, cqubits):
+    def _compr_procedure_call(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
         
 
         proc_identifier = ast.children[0].value
@@ -669,43 +703,31 @@ class PfoqCompiler:
                 else:
                     variables[function_parameter] = old_value
             return circ
+        
         return QuantumCircuit(*self._qr, self._ar)
 
-    # EXPRESSIONS (Registers, Booleans, Integers, Gates)
-    def _compr_qubit_expression(self, ast, L, cs, variables, cqubits):
-
-        #determine qubit_register_name
-        
-        qubit_register_name = ast.children[0]
 
 
-        #determine qubit list
+    def _compr_qubit_expression(self, ast, L, cs, variables, cqubits) -> int:
 
-        if ast.data == "qubit_expression_identifier":
-            qubit_list = self._compr_register_identifier(ast, L, cs, variables)
+        match ast.data:
 
-        elif ast.data == "qubit_expression_variable":
-            qubit_list = self._compr_register_variable(ast, L, cs, variables)
+            case "qubit_expression_identifier":
+                qubit_list = self._compr_register_identifier(ast, L, cs, variables)
 
-        elif ast.data == "qubit_expression_parenthesed":
-            qubit_list = self._compr_parenthesed_register_expression(
-                ast.children[0], L, cs, variables, cqubits)
-        else:
-            raise NotImplementedError(
-                f"Qubit expression {ast.data} not yet handled.")
-        
+            case "qubit_expression_variable":
+                qubit_list = self._compr_register_variable(ast, L, cs, variables)
+
+            case "qubit_expression_parenthesed":
+                qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables, cqubits)
+
+            case _:
+                raise NotImplementedError(f"Qubit expression {ast.data} not yet handled.")
 
         integer_value = self._compr_int_expression(ast.children[1], L, cs, variables)
 
-
         try:
-            qubit = qubit_list[integer_value] #address within register
-
-            # for i in range(len(self._qubit_registers)): #find global address
-            #     if self._qubit_registers[i] != qubit_register_name:
-            #         qubit += self._nb_qubits[i]
-            #     else:
-            #         break
+            qubit = qubit_list[integer_value]
 
         except IndexError:
             raise IndexError(
@@ -713,16 +735,17 @@ class PfoqCompiler:
 
         return qubit
 
-    def _compr_register_identifier(self, ast, L, cs, variables):
+
+    def _compr_register_identifier(self, ast, L, cs, variables) -> int:
         return L[ast.children[0].value]
     
-    def _compr_register_variable(self, ast, L, cs, variables):
+    def _compr_register_variable(self, ast, L, cs, variables) -> int:
         return L[ast.children[0].value]
 
-    def _compr_parenthesed_register_expression(self, ast, L, cs, variables):
+    def _compr_parenthesed_register_expression(self, ast, L, cs, variables) -> list[int]:
         return self._compr_register_expression(ast.children[0], L, cs, variables)
 
-    def _compr_parenthesed_register_expression_first_half(self, ast, L, cs, variables):
+    def _compr_parenthesed_register_expression_first_half(self, ast, L, cs, variables) -> list[int]:
         qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables)
         if len(qubit_list) <= 1:
             return []
@@ -730,7 +753,7 @@ class PfoqCompiler:
             m = ceil(len(qubit_list)/2)
             return qubit_list[:m]
         
-    def _compr_parenthesed_register_expression_second_half(self, ast, L, cs, variables):
+    def _compr_parenthesed_register_expression_second_half(self, ast, L, cs, variables) -> list[int]:
         qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables)
         if len(qubit_list) <= 1:
             return []
@@ -739,7 +762,7 @@ class PfoqCompiler:
             return qubit_list[m:]
         
         
-    def _compr_register_identifier_first_half(self,ast,L,cs,variables):
+    def _compr_register_identifier_first_half(self,ast,L,cs,variables) -> list[int]:
         qubit_list = L[ast.children[0].value]
         if len(qubit_list) <= 1:
             return []
@@ -749,7 +772,8 @@ class PfoqCompiler:
 
 
 
-    def _compr_register_identifier_second_half(self,ast,L,cs,variables):
+    def _compr_register_identifier_second_half(self,ast,L,cs,variables) -> list[int]:
+
         qubit_list = L[ast.children[0].value]
         if len(qubit_list) <= 1:
             return []
@@ -761,7 +785,8 @@ class PfoqCompiler:
     
 
 
-    def _compr_register_expression_minus(self, ast, L, cs, variables):
+    def _compr_register_expression_minus(self, ast, L, cs, variables) -> list[int]:
+
         qubit_list = self._compr_register_expression(ast.children[0], L, cs, variables)
         indices = [self._compr_int_expression(ast.children[i], L, cs, variables) for i in range(1,len(ast.children))]
 
@@ -775,44 +800,41 @@ class PfoqCompiler:
         return [qubit for index,qubit in enumerate(qubit_list) if index not in nonnegative_indices]
         
 
-    def _compr_register_expression(self, *args):
-        """
-        args = (ast, L, cs, variables)
+    def _compr_register_expression(self, ast, L, cs, variables) -> list[int]:
 
-        """
-
-        match args[0].data:
+        match ast.data:
 
             case "register_expression_identifier":
-                return self._compr_register_identifier(*args)
+                return self._compr_register_identifier(ast, L, cs, variables)
             
             case "register_variable":
-                return self._compr_register_variable(*args)
+                return self._compr_register_variable(ast, L, cs, variables)
             
             case "register_expression_parenthesed" | "parenthesed_register_expression":
-                return self._compr_parenthesed_register_expression(*args)
+                return self._compr_parenthesed_register_expression(ast, L, cs, variables)
             
             case "register_expression_minus":
-                return self._compr_register_expression_minus(*args)
+                return self._compr_register_expression_minus(ast, L, cs, variables)
             
             case "register_expression_parenthesed_first_half":
-                return self._compr_parenthesed_register_expression_first_half(*args)
+                return self._compr_parenthesed_register_expression_first_half(ast, L, cs, variables)
             
             case "register_expression_parenthesed_second_half":
-                return self._compr_parenthesed_register_expression_second_half(*args)
+                return self._compr_parenthesed_register_expression_second_half(ast, L, cs, variables)
 
             case "register_identifier_first_half":
-                return self._compr_register_identifier_first_half(*args)
+                return self._compr_register_identifier_first_half(ast, L, cs, variables)
             
             case "register_identifier_second_half":
-                return self._compr_register_identifier_second_half(*args)
+                return self._compr_register_identifier_second_half(ast, L, cs, variables)
             
             case _:
                 raise NotImplementedError(
-                        f"Register expression {args[0]} not yet handled:")
+                        f"Register expression {ast.data} not handled.")
 
 
-    def _compr_boolean_expression(self, ast, L, cs, variables,cqubits):
+    def _compr_boolean_expression(self, ast, L, cs, variables, cqubits) -> bool:
+
         if ast.data == "bool_literal":
             return ast.children[0].value == "true"
         elif ast.data == "bool_greater_than":
@@ -820,7 +842,7 @@ class PfoqCompiler:
         else:
             raise NotImplementedError(f"Boolean expression {ast.data} not yet handled.")
 
-    def _compr_int_expression(self, ast, L, cs, variables):
+    def _compr_int_expression(self, ast, L, cs, variables) -> int:
 
         match ast.data:
 
@@ -864,7 +886,8 @@ class PfoqCompiler:
             
 
     #PARTIAL ORDERING ON INPUTS
-    def _input_ordering(self,x):
+    def _input_ordering(self, x):
+
         return -max(len(x[2][reg]) for reg in self._qubit_registers)
 
     def _optimize(self, l_CST):
@@ -877,239 +900,245 @@ class PfoqCompiler:
 
             cs, ast, L, variables, cqubits = l_CST.pop(0)
 
-            if ast.data == "lstatement":
-                before = True
-                for child in ast.children:
-                    if child.width == 0:
-                        if before:
-                            C_L = C_L.compose(self._compr_statement(child, L, cs, variables, cqubits))
+            match ast.data:
+
+                case "lstatement":
+
+                    before = True
+                    for child in ast.children:
+                        if child.width == 0:
+                            if before:
+                                C_L = C_L.compose(self._compr_statement(child, L, cs, variables, cqubits))
+                            else:
+                                C_R = self._compr_statement(child, L, cs, variables, cqubits).compose(C_R)
                         else:
-                            C_R = self._compr_statement(child, L, cs, variables, cqubits).compose(C_R)
-                    else:
-                        before = False
-                        l_CST.append((cs, child, L, variables, cqubits))
+                            before = False
+                            l_CST.append((cs, child, L, variables, cqubits))
+                
 
-            elif ast.data == "if_statement":
-                guard = self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits)
+                case "if_statement":
 
-                if guard:
+                    guard = self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits)
+
+                    if guard:
+
+                        if ast.children[1].width:
+                            l_CST.append((cs, ast.children[1], L, variables, cqubits))
+
+                        elif self._old_optimize:
+                            C_R = self._compr_lstatement(ast.children[1], L, cs, variables, cqubits).compose(C_R)
+
+                        else:                            
+                            l_M.append((cs, ast.children[1], L, variables, cqubits))
+
+                    elif len(ast.children) == 3:
+
+                        if ast.children[2].width:
+                            l_CST.append((cs, ast.children[2], L, variables, cqubits))
+
+                        elif self._old_optimize:
+                            C_R = self._compr_lstatement(ast.children[2], L, cs, variables, cqubits).compose(C_R)      
+
+                        else:  
+                            l_M.append((cs, ast.children[2], L, variables, cqubits))
+
+
+                case "qcase_statement":
+            
+                    q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+            
+                    if q in cqubits:
+                        raise IndexError(
+                            f"Already controlling on the state of qubit {q}.")
+
+                    cs_0, cs_1 = cs.copy(), cs.copy()
+                    cs_0[q] = 0
+                    cs_1[q] = 1
+
+                    cqubits_0, cqubits_1 = cqubits.copy(), cqubits.copy()
+                    cqubits_0[q] = 0
+                    cqubits_1[q] = 1
+
 
                     if ast.children[1].width:
-                        l_CST.append((cs, ast.children[1], L, variables, cqubits))
+                        l_CST.append((cs_0, ast.children[1], L, variables,cqubits_0))
 
                     elif self._old_optimize:
-                        C_R = self._compr_lstatement(ast.children[1], L, cs, variables, cqubits).compose(C_R)
+                        C_R = self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits,cqubits_1).compose(C_R)      
+                    
+                    else:
+                        l_M.append((cs_0, ast.children[1], L, variables, cqubits))
 
-                    else:                            
-                        l_M.append((cs, ast.children[1], L, variables, cqubits))
 
-                elif len(ast.children) == 3:
 
                     if ast.children[2].width:
-                        l_CST.append((cs, ast.children[2], L, variables, cqubits))
+                        l_CST.append((cs_1, ast.children[2], L, variables, cqubits))
 
                     elif self._old_optimize:
-                        C_R = self._compr_lstatement(ast.children[2], L, cs, variables, cqubits).compose(C_R)      
+                        C_R = self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits).compose(C_R) 
 
-                    else:  
-                        l_M.append((cs, ast.children[2], L, variables, cqubits))
-
-            elif ast.data == "qcase_statement":
-                q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
-                if q in cqubits:
-                    raise IndexError(
-                        f"Already controlling on the state of qubit {q}.")
-
-                cs_0, cs_1 = cs.copy(), cs.copy()
-                cs_0[q] = 0
-                cs_1[q] = 1
-
-                cqubits_0, cqubits_1 = cqubits.copy(), cqubits.copy()
-                cqubits_0[q] = 0
-                cqubits_1[q] = 1
+                    else:           
+                        l_M.append((cs_1, ast.children[2], L, variables, cqubits))
 
 
-                if ast.children[1].width:
-                    l_CST.append((cs_0, ast.children[1], L, variables,cqubits_0))
+                case "procedure_call":
 
-                elif self._old_optimize:
-                    C_R = self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits,cqubits_1).compose(C_R)      
-                
-                else:
-                    l_M.append((cs_0, ast.children[1], L, variables, cqubits))
+                    proc_identifier = ast.children[0].value
 
+                    qregs = []
 
+                    for child in self._functions[proc_identifier].children:
+                        if isinstance(child,lark.Token) and child.type == "REGISTER_VARIABLE":
+                            qregs += [child.value]
 
-                if ast.children[2].width:
-                    l_CST.append((cs_1, ast.children[2], L, variables, cqubits))
-
-                elif self._old_optimize:
-                    C_R = self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits).compose(C_R) 
-
-                else:           
-                    l_M.append((cs_1, ast.children[2], L, variables, cqubits))
-
-            elif ast.data == "procedure_call":
-                
-
-                proc_identifier = ast.children[0].value
-
-                qregs = []
-
-                for child in self._functions[proc_identifier].children:
-                    if isinstance(child,lark.Token) and child.type == "REGISTER_VARIABLE":
-                        qregs += [child.value]
-
-                #qregs = [child.value for child in self._functions[proc_identifier].children[1:-1]]
-
-                if proc_identifier not in self._functions:
-                    raise NameError(
-                        f"Called function {proc_identifier} was not declared.")
+                    if proc_identifier not in self._functions:
+                        raise NameError(
+                            f"Called function {proc_identifier} was not declared.")
 
 
-                
-                new_L = L.copy()
+                    
+                    new_L = L.copy()
 
-                for index in range(-len(qregs),0):
-                    new_L[qregs[index]] = self._compr_register_expression(ast.children[index], L, cs, variables)
+                    for index in range(-len(qregs),0):
+                        new_L[qregs[index]] = self._compr_register_expression(ast.children[index], L, cs, variables)
 
-                if [] in new_L.values():
-                    continue
+                    if [] in new_L.values():
+                        continue
 
-                function = self._functions[proc_identifier]
-                function_parameter = function.children[1] if len(function.children) > 2 + len(L) else None
-                int_parameter = None
+                    function = self._functions[proc_identifier]
+                    function_parameter = function.children[1] if len(function.children) > 2 + len(L) else None
+                    int_parameter = None
 
-                if len(ast.children) > 1 + len(L):
-                    int_parameter = self._compr_int_expression(
-                        ast.children[1], L, cs, variables)
+                    if len(ast.children) > 1 + len(L):
+                        int_parameter = self._compr_int_expression(
+                            ast.children[1], L, cs, variables)
 
-                if (function_parameter is None) ^ (int_parameter is None):
-                    raise (ValueError(
-                        f"Incorrect number of parameters passed to function {proc_identifier}"))
+                    if (function_parameter is None) ^ (int_parameter is None):
+                        raise (ValueError(
+                            f"Incorrect number of parameters passed to function {proc_identifier}"))
 
-                if int_parameter is not None:
-                    variables[function_parameter] = int_parameter
+                    if int_parameter is not None:
+                        variables[function_parameter] = int_parameter
 
-                reg_sizes = tuple([len(value) for key, value in sorted(new_L.items())])
+                    reg_sizes = tuple([len(value) for key, value in sorted(new_L.items())])
 
-                if (proc_identifier,reg_sizes, int_parameter) in Ancillas:
-                    # merging
+                    if (proc_identifier,reg_sizes, int_parameter) in Ancillas:
+                        # merging
 
-                    ancilla, anchored_L = Ancillas[(proc_identifier, reg_sizes, int_parameter)]
+                        ancilla, anchored_L = Ancillas[(proc_identifier, reg_sizes, int_parameter)]
 
-                    C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
-
-                    circ = QuantumCircuit(*self._qr, self._ar)
-                    circ.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
-
-                    C_R = circ.compose(C_R)
-
-
-                    anchored_register, merging_register = [], []
-
-                    for reg in sorted(qregs):
-                        anchored_register += anchored_L[reg]
-                        merging_register += new_L[reg]
-
-
-                    if merging_register!= anchored_register:
-
-                        transposition_list = _merging_transpositions(merging_register, anchored_register)
-                        largest_size = max([len(i) for i in transposition_list])
-
-                        self._max_used_ancilla += 1
-                        starting_ancilla = sum(self._nb_qubits) + self._max_used_ancilla
-
-                        if self._max_used_ancilla >= self._nb_ancillas:
-                            raise AncillaIndexError("Not enough ancillas")
-
-                        C_L.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = _create_control_state(cs))
-                        
-                        circ = QuantumCircuit(*self._qr, self._ar)
-
-                        circ.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = _create_control_state(cs))
-                        
-                        C_R = circ.compose(C_R)
-
-                        swap_ancillas = 1
-
-                        # log-depth ancilla preparation
-                        while swap_ancillas < largest_size:
-                            for sa in range(swap_ancillas):
-
-                                source = starting_ancilla + sa  # actual address
-
-                                self._max_used_ancilla += 1
-                                target = sum(self._nb_qubits) + self._max_used_ancilla
-
-                                if self._max_used_ancilla >= self._nb_ancillas:
-                                    raise AncillaIndexError("Not enough ancillas")
-
-                                C_L.cx(source,target)
-                                
-                                circ = QuantumCircuit(*self._qr, self._ar)
-                                circ.cx(source,target)
-                                
-                                C_R = circ.compose(C_R)
-
-                                swap_ancillas += 1
-
-                                if swap_ancillas >= largest_size:
-                                    break
-
-                            else:
-                                continue
-                            break
-
-
-                        for step in transposition_list:
-                            if step:
-                                i = 0
-                                for qubit_pair in step:
-                                    [q1, q2] = qubit_pair
-
-                                    source = starting_ancilla + i
-                                    C_L.cswap(source,q1,q2)
-                                    
-                                    circ = QuantumCircuit(*self._qr, self._ar)
-                                    
-                                    circ.cswap(source,q1,q2)
-                                    C_R = circ.compose(C_R)
-
-                                    i += 1
-
-                else:
-                    if DEBUG:
-                        print(f"in optimize: calling {proc_identifier} on input {new_L}")
-
-                    if len(cs) > 0:
-                        # ANCHORING
-                        self._max_used_ancilla += 1
-                        ancilla = sum(self._nb_qubits) + self._max_used_ancilla
-                        if self._max_used_ancilla >= self._nb_ancillas:
-                            raise AncillaIndexError("Not enough ancillas")
-                        
-                        reg_sizes = tuple([len(value) for key, value in sorted(new_L.items())])
-
-                        Ancillas[(proc_identifier, reg_sizes, int_parameter)] = [ancilla, new_L]
-                        
                         C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
 
                         circ = QuantumCircuit(*self._qr, self._ar)
-                        circ.mcx(list(sorted(cs)),ancilla, ctrl_state =_create_control_state(cs))
-                        
+                        circ.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
+
                         C_R = circ.compose(C_R)
 
-                        l_CST.append(
-                            ({ancilla: 1}, self._functions[proc_identifier].children[-1], new_L, variables, cqubits))
-                    else:
-                        l_CST.append(
-                            ({}, self._functions[proc_identifier].children[-1], new_L, variables, cqubits))
 
-            else:
-                raise NotImplementedError(
-                    f"Statement {ast.data} not yet handled in optimize.")
+                        anchored_register, merging_register = [], []
+
+                        for reg in sorted(qregs):
+                            anchored_register += anchored_L[reg]
+                            merging_register += new_L[reg]
+
+
+                        if merging_register!= anchored_register:
+
+                            transposition_list = _merging_transpositions(merging_register, anchored_register)
+                            largest_size = max([len(i) for i in transposition_list])
+
+                            self._max_used_ancilla += 1
+                            starting_ancilla = sum(self._nb_qubits) + self._max_used_ancilla
+
+                            if self._max_used_ancilla >= self._nb_ancillas:
+                                raise AncillaIndexError("Not enough ancillas")
+
+                            C_L.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = _create_control_state(cs))
+                            
+                            circ = QuantumCircuit(*self._qr, self._ar)
+
+                            circ.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = _create_control_state(cs))
+                            
+                            C_R = circ.compose(C_R)
+
+                            swap_ancillas = 1
+
+                            # log-depth ancilla preparation
+                            while swap_ancillas < largest_size:
+                                for sa in range(swap_ancillas):
+
+                                    source = starting_ancilla + sa  # actual address
+
+                                    self._max_used_ancilla += 1
+                                    target = sum(self._nb_qubits) + self._max_used_ancilla
+
+                                    if self._max_used_ancilla >= self._nb_ancillas:
+                                        raise AncillaIndexError("Not enough ancillas")
+
+                                    C_L.cx(source,target)
+                                    
+                                    circ = QuantumCircuit(*self._qr, self._ar)
+                                    circ.cx(source,target)
+                                    
+                                    C_R = circ.compose(C_R)
+
+                                    swap_ancillas += 1
+
+                                    if swap_ancillas >= largest_size:
+                                        break
+
+                                else:
+                                    continue
+                                break
+
+
+                            for step in transposition_list:
+                                if step:
+                                    i = 0
+                                    for qubit_pair in step:
+                                        [q1, q2] = qubit_pair
+
+                                        source = starting_ancilla + i
+                                        C_L.cswap(source,q1,q2)
+                                        
+                                        circ = QuantumCircuit(*self._qr, self._ar)
+                                        
+                                        circ.cswap(source,q1,q2)
+                                        C_R = circ.compose(C_R)
+
+                                        i += 1
+
+                    else:
+                        if DEBUG:
+                            print(f"in optimize: calling {proc_identifier} on input {new_L}")
+
+                        if len(cs) > 0:
+                            # ANCHORING
+                            self._max_used_ancilla += 1
+                            ancilla = sum(self._nb_qubits) + self._max_used_ancilla
+                            if self._max_used_ancilla >= self._nb_ancillas:
+                                raise AncillaIndexError("Not enough ancillas")
+                            
+                            reg_sizes = tuple([len(value) for key, value in sorted(new_L.items())])
+
+                            Ancillas[(proc_identifier, reg_sizes, int_parameter)] = [ancilla, new_L]
+                            
+                            C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
+
+                            circ = QuantumCircuit(*self._qr, self._ar)
+                            circ.mcx(list(sorted(cs)),ancilla, ctrl_state =_create_control_state(cs))
+                            
+                            C_R = circ.compose(C_R)
+
+                            l_CST.append(
+                                ({ancilla: 1}, self._functions[proc_identifier].children[-1], new_L, variables, cqubits))
+                        else:
+                            l_CST.append(
+                                ({}, self._functions[proc_identifier].children[-1], new_L, variables, cqubits))
+
+                case _:
+                    raise NotImplementedError(
+                        f"Statement {ast.data} not handled in optimize.")
 
             l_CST.sort(key=lambda x: self._input_ordering(x))
 
@@ -1121,7 +1150,6 @@ class PfoqCompiler:
 
 
         else:
-            # SEQUENTIAL SPLIT
 
             l_M_split = []
 
@@ -1329,7 +1357,7 @@ def count_gates(qc: QuantumCircuit) -> dict[Qubit, int]:
     return gate_count
 
 
-def _create_call_graph(call_graph: nx.DiGraph, f: str, g: Union[lark.Tree, lark.Token]):
+def _create_call_graph(call_graph: nx.DiGraph, f: str, g: Union[lark.Tree, lark.Token]) -> None:
 
     if isinstance(g, lark.Tree):
 
@@ -1366,7 +1394,7 @@ def _create_call_graph(call_graph: nx.DiGraph, f: str, g: Union[lark.Tree, lark.
     return
 
 
-def _find_register_variable(g: Union[lark.Tree, lark.Token]):
+def _find_register_variable(g: Union[lark.Tree, lark.Token]) -> str:
 
     if isinstance(g, lark.Tree):
         # DFS on first node:
@@ -1396,21 +1424,23 @@ def _find_register_variable(g: Union[lark.Tree, lark.Token]):
 
 
 
-def _determine_qubit_difference(g: Union[lark.Tree, lark.Token]):
+def _determine_qubit_difference(g: Union[lark.Tree, lark.Token]) -> int:
     
     if isinstance(g, lark.Tree):
 
-        if g.data in ["register_expression_parenthesed_first_half",
-                      "register_expression_parenthesed_second_half"]:
-            
-            return -2
-
-        elif g.data in ["register_expression_minus"]:
-
-            return min(-1, min(_determine_qubit_difference(child) for child in g.children)) 
+        match g.data:
         
-        else:
-            return min(_determine_qubit_difference(child) for child in g.children)
+            case "register_expression_parenthesed_first_half" | "register_expression_parenthesed_second_half":
+
+                return -2 # halving qubit list
+            
+            case "register_expression_minus":
+
+                return min(-1, min(_determine_qubit_difference(child) for child in g.children)) # at least reducing qubit list
+            
+            case _:
+
+                return min(_determine_qubit_difference(child) for child in g.children)
 
     return 0
 
@@ -1419,15 +1449,25 @@ def _determine_qubit_difference(g: Union[lark.Tree, lark.Token]):
 
 
 
-def _merging_transpositions(first_reg, second_reg) -> list[list[list[int]]]:
-    # quick check if no permutation is needed:
-    # if first_reg == second_reg: return QuantumCircuit(qr,ar)
+def _merging_transpositions(first_reg: list[int], second_reg: list[int]) -> list[list[list[int]]]:
+    """
+    Given any two registers first_reg and second_reg of equal length,
+    outputs a list describing two sets of disjoint transpositions (i.e. length 2 cycles)
+    that transform first_reg into second_reg.
 
-    # elif len(first_reg)!= len(second_reg):
-    #     raise ValueError(f"Attempt to merge two procedure calls with different input size: {len(first_reg)} and {len(second_reg)}.")
+    Examples
+    --------
+    >>> first_reg, second_reg = [1,2,3], [2,4,5]
+    >>> _merging_transpositions(first_reg, second_reg)
+    [[[2, 1], [5, 3]], [[4, 1]]]
+    >>> second_reg = [2,4,5,1]
+    >>> _merging_transpositions(first_reg, second_reg)
+    ValueError: Registers [1, 2, 3] and [2, 4, 5, 1] have different lengths.
+    """
 
-    # Step 0: write out the permutation
-    # domain of values: {0,...,max(first_reg,second_reg)}
+    if len(first_reg) != len(second_reg): raise ValueError(
+        f"Registers {first_reg} and {second_reg} have different lengths.")
+
     domain = max(max(first_reg), max(second_reg))
     not_in_second_reg = [i for i in range(domain + 1) if i not in second_reg]
     D = {k: v for (v, k) in enumerate(first_reg)}
@@ -1440,26 +1480,26 @@ def _merging_transpositions(first_reg, second_reg) -> list[list[list[int]]]:
             permutation += [not_in_second_reg[0]]
             not_in_second_reg = not_in_second_reg[1:]
 
-    to_do = permutation[:]  # numbers still to be processed
-    cycles = []      # will hold the final list of cycles
-    while len(to_do) > 0:  # not done yet...
-        cycle = []
-        image = to_do[0]  # pick a starting point for a new cycle
-        while not (image in cycle):
-            cycle.append(image)  # add element to current cycle
-            to_do.remove(image)  # ... and remove it from to-do list
-            image = permutation[image]   # find next cycle entry
+    to_do = permutation[:] 
+    cycles = []
 
-        cycles.append(cycle)  # store complete cycle
-    # return cycles             # return result
+    while to_do:
+        cycle = []
+        image = to_do[0]
+        while not (image in cycle):
+            cycle.append(image)
+            to_do.remove(image)
+            image = permutation[image]
+
+        cycles.append(cycle)
 
     transpositions = [[], []]
 
     for cyc in cycles:
-        # base cases: (0,1) or (0,1,2)
+        # base cases, e.g. (0,1) or (0,1,2)
         if len(cyc) == 1:
             continue
-        if len(cyc) == 2:  # cicle is already transposition
+        if len(cyc) == 2:
             if not transpositions[0]:
                 transpositions[0].append(cyc)
             else:
