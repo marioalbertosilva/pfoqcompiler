@@ -28,6 +28,9 @@ class PfoqParser(lark.Lark):
 PFOQGRAMMAR = r"""
 boolean_expression: BOOLEAN_LITERAL                                                          -> bool_literal
                     | int_expression ">" int_expression                                      -> bool_greater_than
+                    | int_expression "<" int_expression                                      -> bool_smaller_than
+                    | int_expression "=" int_expression                                      -> bool_equals
+                    | boolean_expression "&&" boolean_expression ("&&" boolean_expression)*  -> bool_conjunction
 register_expression: REGISTER_IDENTIFIER                                                     -> register_expression_identifier
 | REGISTER_VARIABLE                                                                          -> register_variable
 | parenthesed_register_expression                                                            -> register_expression_parenthesed
@@ -71,6 +74,8 @@ PROC_IDENTIFIER : /[a-zA-Z][a-zA-Z_0-9]*/
 INT_IDENTIFIER : /x[0-9]*/
 LAMBDA_EXPR : "lambda" /[^:\[\]]+/ ":" /[^:\[\]]+/
 OPBIN : /[+-]/
+COMMENT: "//" /[^\n]/* | "#" /[^\n]/*
+%ignore COMMENT
 %import common.WS
 %import common.SIGNED_NUMBER
 %ignore WS

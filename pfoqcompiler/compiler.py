@@ -724,6 +724,7 @@ class PfoqCompiler:
             case _:
                 raise NotImplementedError(f"Qubit expression {ast.data} not yet handled.")
 
+
         integer_value = self._compr_int_expression(ast.children[1], L, cs, variables)
 
         try:
@@ -835,12 +836,26 @@ class PfoqCompiler:
 
     def _compr_boolean_expression(self, ast, L, cs, variables, cqubits) -> bool:
 
-        if ast.data == "bool_literal":
-            return ast.children[0].value == "true"
-        elif ast.data == "bool_greater_than":
-            return self._compr_int_expression(ast.children[0], L, cs, variables) > self._compr_int_expression(ast.children[1], L, cs, variables)
-        else:
-            raise NotImplementedError(f"Boolean expression {ast.data} not yet handled.")
+        match ast.data:
+
+            case "bool_literal":
+                return ast.children[0].value == "true"
+            
+            case "bool_greater_than":
+                return self._compr_int_expression(ast.children[0], L, cs, variables) > self._compr_int_expression(ast.children[1], L, cs, variables)
+            
+            case "bool_smaller_than":
+                return self._compr_int_expression(ast.children[0], L, cs, variables) < self._compr_int_expression(ast.children[1], L, cs, variables)
+            
+            case "bool_equals":
+                return self._compr_int_expression(ast.children[0], L, cs, variables) == self._compr_int_expression(ast.children[1], L, cs, variables)
+            
+            case "bool_conjunction":
+                return min(self._compr_boolean_expression(ast.children[i], L, cs, variables, cqubits) for i in range(len(ast.children)))
+            
+            case _:
+                raise NotImplementedError(f"Boolean expression {ast.data} not handled.")
+
 
     def _compr_int_expression(self, ast, L, cs, variables) -> int:
 
@@ -944,7 +959,7 @@ class PfoqCompiler:
 
 
                 case "qcase_statement":
-            
+
                     q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
             
                     if q in cqubits:
@@ -1043,7 +1058,7 @@ class PfoqCompiler:
 
 
                         if merging_register!= anchored_register:
-
+                            
                             transposition_list = _merging_transpositions(merging_register, anchored_register)
                             largest_size = max([len(i) for i in transposition_list])
 
@@ -1467,35 +1482,55 @@ def _merging_transpositions(first_reg: list[int], second_reg: list[int]) -> list
 
     if len(first_reg) != len(second_reg): raise ValueError(
         f"Registers {first_reg} and {second_reg} have different lengths.")
+    
+    domain: list[int] = list(set(first_reg).union(second_reg))
 
-    domain = max(max(first_reg), max(second_reg))
-    not_in_second_reg = [i for i in range(domain + 1) if i not in second_reg]
-    D = {k: v for (v, k) in enumerate(first_reg)}
+    first_not_in_second: list[int] = [qubit for qubit in first_reg if qubit not in second_reg]
+    second_not_in_first: list[int] = [qubit for qubit in second_reg if qubit not in first_reg]
 
-    permutation = []
-    for x in range(domain + 1):
-        if x in first_reg:
-            permutation += [second_reg[D[x]]]
-        else:
-            permutation += [not_in_second_reg[0]]
-            not_in_second_reg = not_in_second_reg[1:]
+    # start by determining permutation
 
-    to_do = permutation[:] 
-    cycles = []
+    permutation: dict = {} # to be defined over the domain
 
-    while to_do:
-        cycle = []
-        image = to_do[0]
-        while not (image in cycle):
-            cycle.append(image)
-            to_do.remove(image)
-            image = permutation[image]
+    for i, qubit in enumerate(first_reg):
+        permutation[qubit] = second_reg[i]
 
-        cycles.append(cycle)
+    for i, qubit in enumerate(second_not_in_first):
+        permutation[qubit] = first_not_in_second[i]
+
+    # define permutation as sequence of disjoint cycles
+
+    cycle_list: list[list[int]] = []
+
+    qubit_list = domain.copy()
+
+    while qubit_list:
+
+        current = qubit_list[0]
+
+        qubit_list.remove(current)
+
+        cycle = [current]
+
+        next = permutation[current]
+
+        while next != cycle[0]:
+            
+            qubit_list.remove(next)
+
+            cycle += [next]
+
+            next = permutation[next]
+
+        if len(cycle) > 1:
+
+            cycle_list += [cycle]
+    
+    # transform cycles into two sets of transpositions
 
     transpositions = [[], []]
 
-    for cyc in cycles:
+    for cyc in cycle_list:
         # base cases, e.g. (0,1) or (0,1,2)
         if len(cyc) == 1:
             continue

@@ -1,7 +1,7 @@
 decl search(a,b){
     if(|a|>1)then{
         qcase(a[|a|/2-1]) of {
-            0->qcase(q[|a|/2]) of{
+            0->qcase(a[|a|/2]) of{
                 0->call search((a)^+ -[0],b);,
                 1->b[0] *=NOT;
             },
