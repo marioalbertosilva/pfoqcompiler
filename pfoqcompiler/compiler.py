@@ -240,6 +240,9 @@ class PfoqCompiler:
         if max_width <= 1 and self._verbose_flag:
             print(f"- Bounded width: {max_width}")
 
+        # Determine fragment:
+        # if max_width <= 1 and halving: print("")
+
 
     
 
@@ -288,9 +291,9 @@ class PfoqCompiler:
 
         if self._verbose_flag:
             print(f"\nCompiled circuit using {self._nb_ancillas} anchoring and merging ancillas.", flush=True)
-            print("Circuit representation in file circuits/"
-                  + self._filename[:-5] + "_"
-                  + "_".join([str(i) for i in self._nb_qubits]) + ".pdf", flush=True)
+            print("Compiled circuit in file \"circuits/"
+                  + self._filename[:-4] + "_"
+                  + "_".join([str(i) for i in self._nb_qubits]) + ".pdf\"", flush=True)
 
     def save(self, filename: str) -> None:
         """
@@ -439,6 +442,55 @@ class PfoqCompiler:
 
                 circuit = circuit.compose(self._compr_lstatement(ast.children[2], L,
                                                                 cs, variables, cqubits))
+                del cs[q]
+                del cqubits[q]
+
+                return circuit
+            
+            case "qcase_statement_two_qubits":
+
+                q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+                q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+
+                for q in [q1,q2]:
+                    if q in cqubits:
+                        raise IndexError(f"Already controlling on the state of qubit {q}.")
+                
+
+                circuit = QuantumCircuit(*self._qr, self._ar)
+
+                # case 00
+
+                cs[q1] = 0
+                cs[q2] = 0
+                cqubits[q1] = 0
+                cqubits[q2] = 0
+
+                circuit = circuit.compose(self._compr_lstatement(ast.children[2], L, cs, variables, cqubits))
+
+                # case 01
+
+                cs[q2] = 1
+                cqubits[q2] = 1
+
+                circuit = circuit.compose(self._compr_lstatement(ast.children[3], L, cs, variables, cqubits))
+
+                # case 10
+                
+                cs[q1] = 1
+                cs[q2] = 0
+                cqubits[q1] = 1
+                cqubits[q2] = 0
+
+                circuit = circuit.compose(self._compr_lstatement(ast.children[4], L, cs, variables, cqubits))
+
+                # case 11
+                
+                cs[q2] = 1
+                cqubits[q2] = 1
+
+                circuit = circuit.compose(self._compr_lstatement(ast.children[5], L, cs, variables, cqubits))
+
                 del cs[q]
                 del cqubits[q]
 
@@ -996,6 +1048,59 @@ class PfoqCompiler:
                         l_M.append((cs_1, ast.children[2], L, variables, cqubits))
 
 
+                case "qcase_statement_two_qubits":
+
+                    q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+                    q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+            
+                    for q in [q1, q2]:
+                        if q in cqubits:
+                            raise IndexError(
+                                f"Already controlling on the state of qubit {q}.")
+                        
+
+                    cs_00, cs_01, cs_10, cs_11 = cs.copy(), cs.copy(), cs.copy(), cs.copy()
+                    cs_00[q1] = 0
+                    cs_00[q2] = 0
+                    cs_01[q1] = 0
+                    cs_01[q2] = 1
+                    cs_10[q1] = 1
+                    cs_10[q2] = 0
+                    cs_11[q1] = 1
+                    cs_11[q2] = 1
+
+                    all_cs = [cs_00, cs_01, cs_10, cs_11]
+
+
+
+                    cqubits_00, cqubits_01, cqubits_10, cqubits_11 = cqubits.copy(), cqubits.copy(), cqubits.copy(), cqubits.copy()
+                    cqubits_00[q1] = 0
+                    cqubits_00[q2] = 0
+                    cqubits_01[q1] = 0
+                    cqubits_01[q2] = 1
+                    cqubits_10[q1] = 1
+                    cqubits_10[q2] = 0
+                    cqubits_11[q1] = 1
+                    cqubits_11[q2] = 1
+
+
+                    all_cqubits = [cqubits_00, cqubits_01, cqubits_10, cqubits_11]
+
+
+                    for i in range(4):
+                        child_index = i + 2
+
+                        if ast.children[child_index].width:
+                            l_CST.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
+
+                        elif self._old_optimize:
+                            C_R = self._compr_lstatement(ast.children[child_index], L, all_cs[i], variables, all_cqubits[i]).compose(C_R)  
+
+                        else:
+                            l_M.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
+
+
+
                 case "procedure_call":
 
                     proc_identifier = ast.children[0].value
@@ -1303,6 +1408,13 @@ class PfoqCompiler:
                 return max(
                         self._width_lstatement(ast.children[1], function_name),
                         self._width_lstatement(ast.children[2], function_name))
+            
+            case "qcase_statement_two_qubits":
+                return max(
+                        self._width_lstatement(ast.children[2], function_name),
+                        self._width_lstatement(ast.children[3], function_name),
+                        self._width_lstatement(ast.children[4], function_name),
+                        self._width_lstatement(ast.children[5], function_name))
             
             case "procedure_call":
                 return self._mutually_recursive_indices[function_name] == self._mutually_recursive_indices[ast.children[0].value]
