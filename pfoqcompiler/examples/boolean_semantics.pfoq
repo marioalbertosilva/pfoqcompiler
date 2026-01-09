@@ -1,0 +1,17 @@
+::
+define q;
+::
+if (true)then{q[0]*=NOT;}
+if (!(false))then{q[1]*=NOT;}
+if (true && true)then{q[2]*=NOT;}
+if (!(true && false))then{q[3]*=NOT;}
+if (!(false && true))then{q[4]*=NOT;}
+if (2<3 && 2<=2 && 2==2 && 2>=2 && 2 != 3 && 2>1)then{q[5]*=NOT;}
+if (!(2<3 && (2<=2 && (2==2 && 2>=2) && !(2 != 3)) && 2>1))then{q[6]*=NOT;}
+if (2<2 && 2<3 || 2==2 && 2>=2)then{q[7]*=NOT;}
+if (2<3 && (2<2 || 2==2) && 2>=2)then{q[8]*=NOT;}
+if (!(false || false))then{q[9]*=NOT;}
+if (false || true)then{q[10]*=NOT;}
+if (false || false || true)then{q[11]*=NOT;}
+if (false || (false || true))then{q[12]*=NOT;}
+if (!((3-1)<=(3-2)))then{q[13]*=NOT;}

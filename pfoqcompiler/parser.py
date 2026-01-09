@@ -26,11 +26,20 @@ class PfoqParser(lark.Lark):
 
 
 PFOQGRAMMAR = r"""
+disjunction: conjunction ("||" conjunction)+                                                 -> multiple_conjs
+| conjunction                                                                                -> conjunction
+conjunction: invert ("&&" invert)+                                                           -> multiple_disjs
+| invert                                                                                     -> disjonction
+invert: "!" "(" disjunction ")"                                                              -> inversion
+| boolean_expression                                                                         -> boolean_expression
 boolean_expression: BOOLEAN_LITERAL                                                          -> bool_literal
                     | int_expression ">" int_expression                                      -> bool_greater_than
+                    | int_expression ">=" int_expression                                     -> bool_greatereq_than
                     | int_expression "<" int_expression                                      -> bool_smaller_than
-                    | int_expression "=" int_expression                                      -> bool_equals
-                    | boolean_expression "&&" boolean_expression ("&&" boolean_expression)*  -> bool_conjunction
+                    | int_expression "<=" int_expression                                     -> bool_smallereq_than
+                    | int_expression "==" int_expression                                     -> bool_equals
+                    | int_expression "!=" int_expression                                     -> bool_different
+                    | "(" disjunction ")"                                                    -> par_disj
 register_expression: REGISTER_IDENTIFIER                                                     -> register_expression_identifier
 | REGISTER_VARIABLE                                                                          -> register_variable
 | parenthesed_register_expression                                                            -> register_expression_parenthesed
@@ -51,12 +60,13 @@ int_expression : SIGNED_NUMBER                                                  
 |  int_expression OPBIN int_expression                                                      -> binary_op
 | "|" register_expression "|"                                                               -> size_of_register
 | parenthesed_int_expression "/2"                                                           -> parenthesed_int_expression_half
-| "|" register_expression "|" "/2"                                                           -> int_expression_half_size
+| "|" register_expression "|" "/2"                                                          -> int_expression_half_size
+| parenthesed_int_expression                                                                -> parenthesed_int_expression
 parenthesed_int_expression : "(" int_expression ")"
 statement : "call" PROC_IDENTIFIER ("[" int_expression "]")? "(" register_expression ("," register_expression)* ")" ";"   -> procedure_call
 | "qcase" "(" qubit_expression ")" "of" "{" "0" "->" lstatement "," "1" "->" lstatement "}"     -> qcase_statement
 | "qcase" "(" qubit_expression "," qubit_expression ")" "of" "{" "00" "->" lstatement "," "01" "->" lstatement "," "10" "->" lstatement "," "11" "->" lstatement  "}"  -> qcase_statement_two_qubits
-| "if" "(" boolean_expression ")" "then" "{" lstatement "}" ("else" "{" lstatement "}")?      -> if_statement
+| "if" "(" disjunction ")" "then" "{" lstatement "}" ("else" "{" lstatement "}")?               -> if_statement
 | qubit_expression "*=" gate_expression ";"                                                     -> gate_application
 | "CNOT" "(" qubit_expression "," qubit_expression ")" ";"                                          -> cnot_gate
 | "SWAP" "(" qubit_expression "," qubit_expression ")" ";"                                        -> swap_gate

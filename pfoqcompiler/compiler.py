@@ -417,7 +417,7 @@ class PfoqCompiler:
                 return self._compr_toffoli_gate(ast, L, cs, variables, cqubits)
             
             case "if_statement":
-                if self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits):
+                if self._compr_disjunction(ast.children[0], L, cs, variables, cqubits):
                     return self._compr_lstatement(ast.children[1], L, cs, variables, cqubits)
                 elif len(ast.children) == 3:
                     return self._compr_lstatement(ast.children[2], L, cs, variables, cqubits)
@@ -885,26 +885,52 @@ class PfoqCompiler:
                 raise NotImplementedError(
                         f"Register expression {ast.data} not handled.")
 
+    def _compr_disjunction(self, ast, L, cs, variables, cqubits) -> bool:
+        match ast.data:
+            case "multiple_conjs": # Lazy evaluation
+                return any(self._compr_conjunction(child, L, cs, variables, cqubits) for child in ast.children)
+            case "conjunction":
+                return self._compr_conjunction(ast.children[0], L, cs, variables, cqubits)
+            case _:
+                raise NotImplementedError(f"Missing disjunction handling for {ast.data}.")
+
+    def _compr_conjunction(self, ast, L, cs, variables, cqubits) -> bool:
+        match ast.data:
+            case "multiple_disjs": # Lazy evaluation
+                return all(self._compr_invert(child, L, cs, variables, cqubits) for child in ast.children)
+            case "disjonction":
+                return self._compr_invert(ast.children[0], L, cs, variables, cqubits)
+            case _:
+                raise NotImplementedError(f"Missing conjunction handling for {ast.data}.")
+            
+    def _compr_invert(self, ast, L, cs, variables, cqubits) -> bool:
+        match ast.data:
+            case "inversion":
+                return not self._compr_disjunction(ast.children[0], L, cs, variables, cqubits)
+            case "boolean_expression":
+                return self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits)
+            case _:
+                raise NotImplementedError(f"Missing inversion handling for {ast.data}.")
 
     def _compr_boolean_expression(self, ast, L, cs, variables, cqubits) -> bool:
 
         match ast.data:
-
             case "bool_literal":
                 return ast.children[0].value == "true"
-            
             case "bool_greater_than":
                 return self._compr_int_expression(ast.children[0], L, cs, variables) > self._compr_int_expression(ast.children[1], L, cs, variables)
-            
+            case "bool_greatereq_than":
+                return self._compr_int_expression(ast.children[0], L, cs, variables) >= self._compr_int_expression(ast.children[1], L, cs, variables)            
             case "bool_smaller_than":
                 return self._compr_int_expression(ast.children[0], L, cs, variables) < self._compr_int_expression(ast.children[1], L, cs, variables)
-            
+            case "bool_smallereq_than":
+                return self._compr_int_expression(ast.children[0], L, cs, variables) <= self._compr_int_expression(ast.children[1], L, cs, variables)
             case "bool_equals":
                 return self._compr_int_expression(ast.children[0], L, cs, variables) == self._compr_int_expression(ast.children[1], L, cs, variables)
-            
-            case "bool_conjunction":
-                return min(self._compr_boolean_expression(ast.children[i], L, cs, variables, cqubits) for i in range(len(ast.children)))
-            
+            case "bool_different":
+                return self._compr_int_expression(ast.children[0], L, cs, variables) != self._compr_int_expression(ast.children[1], L, cs, variables)
+            case "par_disj":
+                return self._compr_disjunction(ast.children[0], L, cs, variables, cqubits)
             case _:
                 raise NotImplementedError(f"Boolean expression {ast.data} not handled.")
 
@@ -985,7 +1011,7 @@ class PfoqCompiler:
 
                 case "if_statement":
 
-                    guard = self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits)
+                    guard = self._compr_disjunction(ast.children[0], L, cs, variables, cqubits)
 
                     if guard:
 
@@ -1320,7 +1346,7 @@ class PfoqCompiler:
             
             case "if_statement":
 
-                if self._compr_boolean_expression(ast.children[0], L, cs, variables, cqubits):
+                if self._compr_disjunction(ast.children[0], L, cs, variables, cqubits):
                     return self._sequential_split(cs, ast.children[1], L, variables, cqubits)
                 
                 elif len(ast.children) == 3:

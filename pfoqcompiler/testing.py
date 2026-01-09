@@ -193,6 +193,9 @@ if __name__ == '__main__':
                                                  ("00010","00010"), ("10010","10010"),
                                                  ("00011","10011"), ("10011","00011")] })
     
+    program_tester4 = ProgramTester(program=open("examples/boolean_semantics.pfoq", "r").read(),
+                                   inout={(14,): [("00000000000000","11111111111111")] })
+    
 
 
     # program_tester3 = ProgramTester(program=open("examples/search.pfoq", "r").read(),
@@ -210,4 +213,7 @@ if __name__ == '__main__':
 
     print("Testing pairs")
     program_tester3.run()
+
+    print("Testing boolean semantics")
+    program_tester4.run()
 
