@@ -26,11 +26,20 @@ class PfoqParser(lark.Lark):
 
 
 PFOQGRAMMAR = r"""
+disjunction: conjunction ("||" conjunction)+                                                 -> multiple_conjs
+| conjunction                                                                                -> conjunction
+conjunction: invert ("&&" invert)+                                                           -> multiple_disjs
+| invert                                                                                     -> disjonction
+invert: "!" "(" disjunction ")"                                                              -> inversion
+| boolean_expression                                                                         -> boolean_expression
 boolean_expression: BOOLEAN_LITERAL                                                          -> bool_literal
                     | int_expression ">" int_expression                                      -> bool_greater_than
+                    | int_expression ">=" int_expression                                     -> bool_greatereq_than
                     | int_expression "<" int_expression                                      -> bool_smaller_than
-                    | int_expression "=" int_expression                                      -> bool_equals
-                    | boolean_expression "&&" boolean_expression ("&&" boolean_expression)*  -> bool_conjunction
+                    | int_expression "<=" int_expression                                     -> bool_smallereq_than
+                    | int_expression "==" int_expression                                     -> bool_equals
+                    | int_expression "!=" int_expression                                     -> bool_different
+                    | "(" disjunction ")"                                                    -> par_disj
 register_expression: REGISTER_IDENTIFIER                                                     -> register_expression_identifier
 | REGISTER_VARIABLE                                                                          -> register_variable
 | parenthesed_register_expression                                                            -> register_expression_parenthesed
