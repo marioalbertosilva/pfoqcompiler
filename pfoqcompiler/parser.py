@@ -60,12 +60,13 @@ int_expression : SIGNED_NUMBER                                                  
 |  int_expression OPBIN int_expression                                                      -> binary_op
 | "|" register_expression "|"                                                               -> size_of_register
 | parenthesed_int_expression "/2"                                                           -> parenthesed_int_expression_half
-| "|" register_expression "|" "/2"                                                           -> int_expression_half_size
+| "|" register_expression "|" "/2"                                                          -> int_expression_half_size
+| parenthesed_int_expression                                                                -> parenthesed_int_expression
 parenthesed_int_expression : "(" int_expression ")"
 statement : "call" PROC_IDENTIFIER ("[" int_expression "]")? "(" register_expression ("," register_expression)* ")" ";"   -> procedure_call
 | "qcase" "(" qubit_expression ")" "of" "{" "0" "->" lstatement "," "1" "->" lstatement "}"     -> qcase_statement
 | "qcase" "(" qubit_expression "," qubit_expression ")" "of" "{" "00" "->" lstatement "," "01" "->" lstatement "," "10" "->" lstatement "," "11" "->" lstatement  "}"  -> qcase_statement_two_qubits
-| "if" "(" boolean_expression ")" "then" "{" lstatement "}" ("else" "{" lstatement "}")?      -> if_statement
+| "if" "(" disjunction ")" "then" "{" lstatement "}" ("else" "{" lstatement "}")?               -> if_statement
 | qubit_expression "*=" gate_expression ";"                                                     -> gate_application
 | "CNOT" "(" qubit_expression "," qubit_expression ")" ";"                                          -> cnot_gate
 | "SWAP" "(" qubit_expression "," qubit_expression ")" ";"                                        -> swap_gate
