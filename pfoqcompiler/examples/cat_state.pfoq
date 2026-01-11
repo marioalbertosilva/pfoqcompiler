@@ -1,7 +1,7 @@
-decl cnots(q){
-    if(|q|>1)then{
-        CNOT(q[0],q[1]);
-        call cnots(q-[0]);
+decl cnots(a){
+    if(|a|>1)then{
+        CNOT(a[0],a[1]);
+        call cnots(a-[0]);
     }else{skip;}
 }
 ::

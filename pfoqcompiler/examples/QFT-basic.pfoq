@@ -1,24 +1,24 @@
-decl qft(q){
-    q[0] *= H;
-    call rot(q);
-    call shift(q);
-    call qft(q-[-1]);
+decl qft(a){
+    a[0] *= H;
+    call rot(a);
+    call shift(a);
+    call qft(a-[-1]);
 }
 
-decl shift(q){
-    if(|q|>1)then{
-        SWAP(q[0],q[-1]);
-        call shift(q-[-1]);
+decl shift(b){
+    if(|b|>1)then{
+        SWAP(b[0],b[-1]);
+        call shift(b-[-1]);
     }else{skip;}
 }
 
-decl rot(q){
-    if(|q|>1)then{
-        qcase(q[-1]) of {
+decl rot(c){
+    if(|c99999|>1)then{
+        qcase(c99999[-1]) of {
             0->skip;,
-            1->q[0] *= Ph(|q|);
+            1->c99999[0] *= Ph(|c99999|);
         }
-    call rot(q-[-1]);
+    call rot(c99999-[-1]);
     }else{skip;}
 }
 ::

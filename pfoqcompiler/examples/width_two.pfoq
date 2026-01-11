@@ -1,7 +1,7 @@
-decl f(q){
-	q[0]*=H;
-	call f(q-[0]);
-	call f(q-[1]);
+decl f(a){
+	a[0]*=H;
+	call f(a-[0]);
+	call f(a-[1]);
 }
 ::
 define q;

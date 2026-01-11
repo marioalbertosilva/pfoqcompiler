@@ -1,14 +1,14 @@
-decl f(q){
-   qcase (q[0]) of {
-   	0 -> call f(q-[0]);,
-   	1 -> call g(q-[0]);}}
+decl f(a){
+   qcase (a[0]) of {
+   	0 -> call f(a-[0]);,
+   	1 -> call g(a-[0]);}}
    	
- decl g(q){
-   qcase (q[0]) of {
-   	0 -> call g(q-[0]);,
-   	1 -> call oplus(q-[0]);}}
+ decl g(b){
+   qcase (b[0]) of {
+   	0 -> call g(b-[0]);,
+   	1 -> call oplus(b-[0]);}}
    
- decl oplus(q){q[0]*=NOT;}
+ decl oplus(c){c[0]*=NOT;}
 ::
 define q;
 ::

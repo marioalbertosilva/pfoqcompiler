@@ -1,6 +1,6 @@
 ::
 define q;
 ::
-if(2>3)then{q[1]*=NOT;}else{q[2]*=H;}
-if(true)then{q[1]*=NOT;}else{q[2]*=H;}
-if(false)then{q[1]*=NOT;}else{q[2]*=H;}
+if(2>3)then{q[0]*=NOT;}else{q[2]*=NOT;}
+if(true)then{q[1]*=NOT;}else{q[0]*=NOT;}
+if(false)then{q[0]*=NOT;}else{q[3]*=NOT;}

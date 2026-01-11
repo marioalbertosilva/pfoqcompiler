@@ -1,0 +1,1 @@
+python3 ./pfoqcompiler/tests/examples_tests.py
