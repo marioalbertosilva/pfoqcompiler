@@ -771,7 +771,7 @@ class PfoqCompiler:
                 qubit_list = self._compr_register_variable(ast, L, cs, variables)
 
             case "qubit_expression_parenthesed":
-                qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables, cqubits)
+                qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables)
 
             case _:
                 raise NotImplementedError(f"Qubit expression {ast.data} not yet handled.")
