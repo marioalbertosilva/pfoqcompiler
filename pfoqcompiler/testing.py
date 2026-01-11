@@ -16,7 +16,7 @@ class ProgramTester():
     program: str
         PFOQ program to test.
 
-    inout: dict[tuple[int],list[tuple[Union[Statevector,str]]]]
+    inout: dict[tuple[int], list[tuple[Union[Statevector, str]]]]
         Inputs to be tested and corresponding outputs. Dictionary of register sizes mapped to input-output pairs.
 
     flags: dict, optional
@@ -35,9 +35,9 @@ class ProgramTester():
     """
 
     def __init__(self,
+                 *,
                  program: str,
                  inout: dict[tuple[int], list[tuple[Union[Statevector, str]]]],
-                 *args,
                  **flags):
 
         self.classical_simulation = flags.get("classical", False)
@@ -69,7 +69,7 @@ class ProgramTester():
 
     def run(self):
         """
-        Run the planned tests
+        Run the planned tests.
 
         """
         runner = unittest.TextTestRunner()
@@ -79,12 +79,18 @@ class ProgramTester():
 class TestPFOQParsing(unittest.TestCase):
     """TestCase of the parsing of a configured compiler.
 
+    Parameters
+    ----------
     compiler: PfoqCompiler
         Compiler with program whose parsing is to be tested.
+    methodName: str
+        Name of the method to be tested.
 
     """
 
-    def __init__(self, compiler, methodName="test_parse"):
+    def __init__(self,
+                 compiler: PfoqCompiler,
+                 methodName: str = "test_parse"):
         self.compiler = compiler
         super().__init__(methodName)
 
@@ -95,12 +101,21 @@ class TestPFOQParsing(unittest.TestCase):
 class TestPFOQCompilation(unittest.TestCase):
     """TestCase of the compilation of a configured compiler.
 
+    Parameters
+    ----------
     compiler: PfoqCompiler
         Compiler with program whose compilation is to be tested.
+    dummy_compiler: PfoqCompiler, optional
+        Optional compiled program from which the ast can be reused.
+    methodName: str
+        Name of the method to be tested.
 
     """
 
-    def __init__(self, compiler, dummy_compiler=None, methodName="test_compile"):
+    def __init__(self,
+                 compiler: PfoqCompiler,
+                 dummy_compiler: Optional[PfoqCompiler] = None,
+                 methodName: str = "test_compile"):
         self.compiler = compiler
         self.dummy_compiler = dummy_compiler
         super().__init__(methodName)
@@ -121,12 +136,24 @@ class TestPFOQCompilation(unittest.TestCase):
 class TestPFOQExecution(unittest.TestCase):
     """TestCase of the execution of a compiled FOQ program.
 
+    Parameters
+    ----------
     compiler: PfoqCompiler
         Compiler with program whose compilation is to be tested.
+    input: Union[Statevector, str]
+        Input for the TestCase.
+    output: Union[Statevector, str]
+        Expected output of the TestCase
+    methodName: str
+        Name of the method to be tested.
 
     """
 
-    def __init__(self, compiler: PfoqCompiler, input, output, methodName="test_exec"):
+    def __init__(self,
+                 compiler: PfoqCompiler,
+                 input: Union[Statevector, str],
+                 output: Union[Statevector, str],
+                 methodName: str = "test_exec"):
         self.compiler = compiler
         self.input = input
         self.output = output
@@ -140,24 +167,83 @@ class TestPFOQExecution(unittest.TestCase):
         self.output = manageinout(self.output, self.compiler)
 
     def test_exec(self):
-
         self.assertIsNotNone(self.compiler.compiled_circuit)
         self.assertTrue((compiled := self.input.evolve(self.compiler.compiled_circuit)).equiv(self.output),
                         f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input)}, expected {sv_to_dict(self.output)}")
 
 
-def manageinout(inout, compiler):
-    state = np.zeros(int(2**compiler.compiled_circuit.num_qubits))
-    state[indexket(inout.zfill(compiler._nb_total_wires))] = 1
+def manageinout(inout: Union[Statevector, str],
+                compiler: PfoqCompiler) -> Statevector:
+    """Statevector building helper
 
-    return Statevector(state)
+    Builds the statevector corresponding to the given string sequence of bits.
+    
+    Parameters
+    ----------
+    inout: str
+        Binary sequence representing a basis statevector
+
+    compiler: PfoqCompiler
+        Compiled instance of a PFOQ program the statevector will be used as in/output for.
+
+    Returns
+    -------
+    Statevector
+        Built basis statevector
+
+    """
+    if isinstance(inout, str):
+        state = np.zeros(int(2**compiler.compiled_circuit.num_qubits))
+        state[indexket(inout.zfill(compiler._nb_total_wires))] = 1
+
+        return Statevector(state)
+    
+    elif isinstance(inout, Statevector):
+        raise NotImplementedError
+    
+    else:
+        raise TypeError(f"Given input {inout} of type {type(inout).__name__} is neither a str or a Statevector.")
 
 
-def sv_to_dict(sv: Statevector, precision=4):
+def sv_to_dict(sv: Statevector,
+               precision: int = 4) -> dict[str, complex]:
+    """Convert a statevector to a dict
+
+    The output dictionary represents the complex amplitudes of the given statevector
+    in the computational basis.
+    
+    Parameters
+    ----------
+    sv: Statevector
+        Statevector to convert.
+    precision: int
+        Order of precision according to which the amplitude are rounded.
+
+    Returns
+    -------
+    dict[str, complex]
+        Decomposition of the statevector in the computational basis.
+
+    """
     return {str(state): round(float(amplitude.real), precision)+1j*round(float(amplitude.imag), precision) for state, amplitude in sv.to_dict().items() if np.absolute(amplitude) > 10**(-precision)}
 
 
-def indexket(string):
+def indexket(string: str) -> int:
+    """Base2 to base10 conversion
+
+    Gives the base10 interpretation of given binary sequence.
+    
+    Parameters
+    ----------
+    string: str
+        Binary sequence to convert
+
+    Returns
+    -------
+    int
+        Interpreted base 10 value
+
+    """
     return int(string, 2)
 
 
