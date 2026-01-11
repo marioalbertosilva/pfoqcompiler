@@ -1,11 +1,11 @@
-decl full_adder(q){
-if(|q|>3)then{
-	TOF(q[0],q[1],q[-2]);
-	CNOT(q[0],q[1]);
-	TOF(q[1],q[-1],q[-2]);
-	CNOT(q[1],q[-1]);
-	CNOT(q[0],q[1]);
-	call full_adder(q-[0,1,-1]);
+decl full_adder(a){
+if(|a|>3)then{
+	TOF(a[0],a[1],a[-2]);
+	CNOT(a[0],a[1]);
+	TOF(a[1],a[-1],a[-2]);
+	CNOT(a[1],a[-1]);
+	CNOT(a[0],a[1]);
+	call full_adder(a-[0,1,-1]);
 }
 }
 ::

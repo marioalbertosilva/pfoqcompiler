@@ -1,7 +1,7 @@
-decl a1(q){ qcase (q[0]) of {0 -> call b1(q-[0]);, 1 -> call a1(q-[0]);} }
-decl b1(q){ qcase (q[0]) of {0 -> call c1(q-[0]);, 1 -> call a1(q-[0]);} }
-decl c1(q){ qcase (q[0]) of {0 -> call c1(q-[0]);, 1 -> call oplus(q-[0]);} }
-decl oplus(q){ q[-1] *= NOT; }
+decl a1(a){ qcase (a[0]) of {0 -> call b1(a-[0]);, 1 -> call a1(a-[0]);} }
+decl b1(a){ qcase (a[0]) of {0 -> call c1(a-[0]);, 1 -> call a1(a-[0]);} }
+decl c1(a){ qcase (a[0]) of {0 -> call c1(a-[0]);, 1 -> call oplus(a-[0]);} }
+decl oplus(a){ a[-1] *= NOT; }
 ::
 define q;
 ::

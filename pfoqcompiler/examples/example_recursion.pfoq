@@ -1,11 +1,13 @@
-decl f(q){
-    if(2>|q|)then{
-        q[0]*=NOT;
+decl f(a){
+    if(2>|a|)then{
+        a[0]*=NOT;
     }else{
-    qcase (q[0]) of {
-        0-> call f(q-[0]);,
-        1-> call f(q-[0]);
+    qcase (a[0]) of {
+        0-> call f(a-[0]);,
+        1-> call f(a-[0]);
     }}
 }
+::
+define q;
 ::
 call f(q);

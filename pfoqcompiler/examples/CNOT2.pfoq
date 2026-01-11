@@ -3,5 +3,5 @@ define q;
 ::
 qcase(q[0])of{
     0->skip;,
-    1->SWAP(q[1],q[2]);
+    1->q[1]*=NOT;
 }

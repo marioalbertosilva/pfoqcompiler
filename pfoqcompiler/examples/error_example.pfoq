@@ -1,10 +1,10 @@
-decl f(q){
-    if(|q|>2)then{
-        qcase(q[0]) of {
-            0-> call f(q-[1]);,
-            1-> call f(q-[1]);
+decl f(a){
+    if(|a|>2)then{
+        qcase(a[0]) of {
+            0-> call f(a-[1]);,
+            1-> call f(a-[1]);
             }
-    }else{q[0]*=NOT;}
+    }else{a[0]*=NOT;}
 }
 ::
 define q;

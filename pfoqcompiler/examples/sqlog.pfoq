@@ -1,11 +1,11 @@
-decl f(q,r){
-    q[0] *= Ph(|q|);
-    call f((q)^+,r);
-    call g(q,r-[0]);}
-decl g(q,r){
-    qcase(q[|q|/2])of{
-        0->call g((q)^-,r);,
-        1->r[0]*=NOT;
+decl f(a,b){
+    a[0] *= Ph(|a|);
+    call f((a)^+,b);
+    call g(a,b-[0]);}
+decl g(a,b){
+    qcase(a[|a|/2])of{
+        0->call g((a)^-,b);,
+        1->b[0]*=NOT;
     }
 }
 ::

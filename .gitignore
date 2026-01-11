@@ -5,3 +5,5 @@
 doc/build
 doc/source/_autosummary
 doc/source/_toctree
+pfoqcompiler/circuits/
+pfoqcompiler/tests/__pycache__
