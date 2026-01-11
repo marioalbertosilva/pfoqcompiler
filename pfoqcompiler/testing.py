@@ -162,47 +162,25 @@ def indexket(string):
 
 
 if __name__ == '__main__':
+    from pfoqcompiler import __examples_directory__
+    import os
+    os.chdir(__examples_directory__)
 
-
-    program_tester = ProgramTester(program=open("examples/qcase_SWAP.pfoq", "r").read(),
+    program_tester = ProgramTester(program=open("qcase_SWAP.pfoq", "r").read(),
                                    inout={(4,): [("0000", "0000"),   ("1000", "0001"),   ("0101", "1100"),  ("0101","1100"),  ("0010","1000")],
                                           (5,): [("00000", "00000"), ("10000", "00001"), ("00101", "01100"),("00101","01100"),("00010","10000")]})
 
-
-    program_tester2 = ProgramTester(program=open("examples/qcase_CNOT.pfoq", "r").read(),
+    program_tester2 = ProgramTester(program=open("qcase_CNOT.pfoq", "r").read(),
                                    inout={(3,): [("000", "011"), ("001", "000"), ("010", "001"), ("011", "010"), ("100", "111"), ("101", "100"), ("110", "101"), ("111", "110")]} )
-    
 
-    # def pairs(x):
-
-    #     if len(x) > 1:
-    #         if x[0]==x[1]: return pairs(x[2:])
-    #         else: return 0
-
-    #     elif len(x) == 1: return 0
-
-    #     return 1
-
-    # program_tester3 = ProgramTester(program=open("examples/pairs.pfoq", "r").read(),
-    #                                inout={(5,): [((bin(i)[2:]+"0")[::-1], (bin(i)[2:]+str(pairs(bin(i)[2:])))[::-1]) for i in range(2**5)]})
-
-
-    program_tester3 = ProgramTester(program=open("examples/pairs.pfoq", "r").read(),
+    program_tester3 = ProgramTester(program=open("pairs.pfoq", "r").read(),
                                    inout={(5,): [("00000","10000"), ("10000","00000"),
                                                  ("00001","00001"), ("10001","10001"),
                                                  ("00010","00010"), ("10010","10010"),
                                                  ("00011","10011"), ("10011","00011")] })
     
-    program_tester4 = ProgramTester(program=open("examples/boolean_semantics.pfoq", "r").read(),
+    program_tester4 = ProgramTester(program=open("boolean_semantics.pfoq", "r").read(),
                                    inout={(14,): [("00000000000000","11111111111111")] })
-    
-
-
-    # program_tester3 = ProgramTester(program=open("examples/search.pfoq", "r").read(),
-    #                                inout={(14,1): [("00000001111111","10000"), ("10000","00000"),
-    #                                              ("00001","00001"), ("10001","10001"),
-    #                                              ("00010","00010"), ("10010","10010"),
-    #                                              ("00011","10011"), ("10011","00011")] })
 
 
     print("Testing qcase_SWAP")
