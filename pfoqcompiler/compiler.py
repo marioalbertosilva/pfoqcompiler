@@ -292,7 +292,7 @@ class PfoqCompiler:
         if self._verbose_flag:
             print(f"\nCompiled circuit using {self._nb_ancillas} anchoring and merging ancillas.", flush=True)
             print("Compiled circuit in file \"circuits/"
-                  + self._filename[:-4] + "_"
+                  + self._filename.split(".")[0] + "_"
                   + "_".join([str(i) for i in self._nb_qubits]) + ".pdf\"", flush=True)
 
     def save(self, filename: str) -> None:
@@ -327,7 +327,7 @@ class PfoqCompiler:
                             fold=-1, plot_barriers=False)
             #plt.show()
 
-            plt.savefig("circuits/" + self._filename[:-5] + "_" + "_".join([str(i) for i in self._nb_qubits]), format="pdf")
+            plt.savefig("circuits/" + self._filename.split(".")[0] + "_" + "_".join([str(i) for i in self._nb_qubits]), format="pdf")
 
 
         except Exception as exception:
@@ -771,7 +771,7 @@ class PfoqCompiler:
                 qubit_list = self._compr_register_variable(ast, L, cs, variables)
 
             case "qubit_expression_parenthesed":
-                qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables, cqubits)
+                qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables)
 
             case _:
                 raise NotImplementedError(f"Qubit expression {ast.data} not yet handled.")
