@@ -1,0 +1,12 @@
+decl palindrome(a,b){ //if q encodes a binary palindrome, apply NOT to r[0]
+    if(|a|>2)then{ //recursive case
+         qcase(a[0],a[-1]) of {
+             00 -> call palindrome(a-[0,-1],b);,
+             01 -> skip;,
+             10 -> skip;,
+             11 -> call palindrome(a-[0,-1],b); }}
+    else{b[0]*=NOT;}} //base case
+::
+define q r;
+::
+call palindrome(q,r);

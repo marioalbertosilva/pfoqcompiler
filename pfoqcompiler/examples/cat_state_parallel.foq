@@ -4,9 +4,8 @@ decl cnots_par(a){
         call cnots_par((a)^-);
         call cnots_par((a)^+);
     }else{
-    if(|a|>1)then{ //base case
-    	CNOT(a[0],a[1]);
-    }else{skip;}
+    if(|a|==2)then{ //base case
+    	CNOT(a[0],a[1]);}
 } }
 ::
 define q;

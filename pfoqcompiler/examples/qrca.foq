@@ -5,6 +5,7 @@ decl add(a,b,c){
 	CNOT(b[-1],c[-1]);
 	CNOT(a[-1],b[-1]);	
 }
+
 decl full_adder(a,b,c){
 	if(|c|>1)then{
 	call add(a,b,c);

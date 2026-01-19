@@ -1,0 +1,9 @@
+decl f[x](a){
+  if(|a|>x)then{
+  a[x]*=H;
+  }
+}
+::
+define q;
+::
+call f[-42](q);

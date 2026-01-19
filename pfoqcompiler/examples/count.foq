@@ -1,0 +1,11 @@
+decl count(a,b){ //counting number of 0's in a sorted list in log time
+    if(|a|>1)then{
+        qcase(a[(|a|)/2-1]) of {
+            0-> call count((a)^+,b-[0]);,
+            1-> b[0]*=NOT; call count((a)^-,b-[0]);
+        }
+    }}
+::
+define q r;
+::
+call count(q,r);

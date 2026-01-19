@@ -1,0 +1,11 @@
+decl f(a){
+    if(|a|<2)then{
+        a[0]*=NOT;
+    }else{
+    qcase (a[0]) of {
+        0-> call f(a-[0]);,
+        1-> call f(a-[0]);
+    }}
+}
+::
+call f(q);

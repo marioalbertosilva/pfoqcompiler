@@ -1,8 +1,0 @@
-decl a1(q){ qcase (q[0]) of {0 -> call b1(q-[0]);, 1 -> call a1(q-[0]);} }
-decl b1(q){ qcase (q[0]) of {0 -> call c1(q-[0]);, 1 -> call a1(q-[0]);} }
-decl c1(q){ qcase (q[0]) of {0 -> call c1(q-[0]);, 1 -> call oplus(q-[0]);} }
-decl oplus(q){ q[-1] *= NOT; }
-::
-define q;
-::
-call a1(q);

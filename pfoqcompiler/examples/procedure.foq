@@ -1,0 +1,8 @@
+decl f(a){
+   a[0]*=H;
+   call f(a-[0]);
+}
+::
+define q;
+::
+call f(q);

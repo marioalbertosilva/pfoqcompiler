@@ -1,0 +1,23 @@
+decl qft(a){
+    a[0] *= H;
+    call rot(a);
+    call shift(a);
+    call qft(a-[-1]);
+}
+
+decl shift(a){
+    if(|a|>1)then{
+        SWAP(a[0],a[-1]);
+        call shift(a-[-1]); } }
+
+decl rot(a){
+    if(|a|>1)then{
+        qcase(a[-1]) of {
+            0-> skip;,
+            1-> a[0] *= Ph(|a|);
+        }
+    call rot(a-[-1]);} }
+::
+define q;
+::
+call qft(q);

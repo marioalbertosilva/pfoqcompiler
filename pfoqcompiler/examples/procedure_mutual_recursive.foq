@@ -1,0 +1,11 @@
+decl f(a){
+   a[0]*=H;
+   if(|a|>1) then {call g(a-[0]);}}
+   
+decl g(a){
+   a[0]*=NOT;
+   if(|a|>1) then {call f(a-[0]);}}
+::
+define q;
+::
+call f(q);

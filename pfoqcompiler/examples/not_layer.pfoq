@@ -1,8 +1,0 @@
-decl f(q){
-     q[0] *= NOT;
-     call f(q-[0]);
-}
-::
-define q;
-::
-call f(q);

@@ -4,8 +4,7 @@ decl search(a,b){
 	    00 -> call search((a)^+ -[0], b);,
 	    01 -> b[0] *= NOT;,
 	    10 -> call search((a)^- -[-1], b);,
-	    11 -> skip;} }
-    else{skip;} }
+	    11 -> skip;} } }
 ::
 define q r;
 ::

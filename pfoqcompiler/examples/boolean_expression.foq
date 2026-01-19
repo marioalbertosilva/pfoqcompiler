@@ -1,0 +1,4 @@
+::
+define q;
+::
+if(3>2 && 4=4 && 5<6) then {q[0]*= H;} else {q[0] *= NOT;}
