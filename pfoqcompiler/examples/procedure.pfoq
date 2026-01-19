@@ -1,0 +1,8 @@
+decl f(c99999){
+   c99999[0]*=H;
+   call f(c99999-[0]);
+}
+::
+define q;
+::
+call f(q);

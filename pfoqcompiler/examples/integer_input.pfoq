@@ -1,0 +1,9 @@
+decl f[x](a){
+  if(|a|>x)then{
+  a[x]*=NOT;
+  }
+}
+::
+define q;
+::
+call f[4](q);

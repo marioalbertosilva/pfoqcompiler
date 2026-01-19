@@ -1,8 +1,14 @@
 decl f(a,b){
+<<<<<<< HEAD
     q[0] *= Ph(|q|);
     call f((a)^+,b);
     call g(a,b-[0]);}
     
+=======
+    a[0] *= Ph(|a|);
+    call f((a)^+,b);
+    call g(a,b-[0]);}
+>>>>>>> origin/improved_testing
 decl g(a,b){
     qcase(a[|a|/2])of{
         0->call g((a)^-,b);,

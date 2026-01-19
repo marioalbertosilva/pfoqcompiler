@@ -1,0 +1,17 @@
+decl f(a){
+    if(|a|>1)then{
+    qcase(a[0]) of {
+        0-> call f(a-[0]);,
+        1-> qcase(a[1]) of {
+            0 -> skip;,
+            1 -> call f(a-[0]-[0]);
+        }
+        }
+    }else{
+        q[|a|-1]*="U";
+    }
+}
+::
+define q;
+::
+call f(q);

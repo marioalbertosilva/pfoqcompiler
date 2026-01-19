@@ -1,0 +1,11 @@
+decl a1(a){ qcase (a[0]) of {0 -> call b1(a-[0]);, 1 -> call a1(a-[0]);} }
+decl b1(a){ qcase (a[0]) of {0 -> call c1(a-[0]);, 1 -> call a1(a-[0]);} }
+decl c1(a){ qcase (a[0]) of {0 -> call c1(a-[0]);, 1 -> call a2(a-[0]);} }
+decl a2(a){ qcase (a[0]) of {0 -> call b2(a-[0]);, 1 -> call a2(a-[0]);} }
+decl b2(a){ qcase (a[0]) of {0 -> call c2(a-[0]);, 1 -> call a2(a-[0]);} }
+decl c2(a){ qcase (a[0]) of {0 -> call c2(a-[0]);, 1 -> call oplus(a-[0]);} }
+decl oplus(a){ q[-1] *= NOT; }
+::
+define q;
+::
+call a1(q);

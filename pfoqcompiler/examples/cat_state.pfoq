@@ -1,0 +1,11 @@
+decl cnots(a){
+    if(|a|>1)then{
+        CNOT(a[0],a[1]);
+        call cnots(a-[0]);
+    }else{skip;}
+}
+::
+define q;
+::
+q[0]*=H;
+call cnots(q);
