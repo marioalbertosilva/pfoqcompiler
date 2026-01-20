@@ -365,7 +365,7 @@ class PfoqCompiler:
         self._qr = [QuantumRegister(nb, name=f"{reg}") for reg, nb in zip(register_definition.children, self._nb_qubits)]
 
         qc = QuantumCircuit(*self._qr, self._ar)
-        qc = qc.compose(self._compr_lstatement(ast=program_statement, L=L, cs={}, variables={}, cqubits = {}))
+        qc.compose(self._compr_lstatement(ast=program_statement, L=L, cs={}, variables={}, cqubits = {}), inplace=True)
         
         return qc
 
@@ -425,13 +425,13 @@ class PfoqCompiler:
                 cs[q] = 0
                 cqubits[q] = 0
 
-                circuit = circuit.compose(self._compr_lstatement(ast.children[1], L,
-                                                                cs, variables, cqubits))
+                circuit.compose(self._compr_lstatement(ast.children[1], L,
+                                                       cs, variables, cqubits), inplace=True)
                 cs[q] = 1
                 cqubits[q] = 1
 
-                circuit = circuit.compose(self._compr_lstatement(ast.children[2], L,
-                                                                cs, variables, cqubits))
+                circuit.compose(self._compr_lstatement(ast.children[2], L,
+                                                       cs, variables, cqubits), inplace=True)
                 del cs[q]
                 del cqubits[q]
 
@@ -456,14 +456,14 @@ class PfoqCompiler:
                 cqubits[q1] = 0
                 cqubits[q2] = 0
 
-                circuit = circuit.compose(self._compr_lstatement(ast.children[2], L, cs, variables, cqubits))
+                circuit.compose(self._compr_lstatement(ast.children[2], L, cs, variables, cqubits), inplace=True)
 
                 # case 01
 
                 cs[q2] = 1
                 cqubits[q2] = 1
 
-                circuit = circuit.compose(self._compr_lstatement(ast.children[3], L, cs, variables, cqubits))
+                circuit.compose(self._compr_lstatement(ast.children[3], L, cs, variables, cqubits), inplace=True)
 
                 # case 10
                 
@@ -472,14 +472,14 @@ class PfoqCompiler:
                 cqubits[q1] = 1
                 cqubits[q2] = 0
 
-                circuit = circuit.compose(self._compr_lstatement(ast.children[4], L, cs, variables, cqubits))
+                circuit.compose(self._compr_lstatement(ast.children[4], L, cs, variables, cqubits), inplace=True)
 
                 # case 11
                 
                 cs[q2] = 1
                 cqubits[q2] = 1
 
-                circuit = circuit.compose(self._compr_lstatement(ast.children[5], L, cs, variables, cqubits))
+                circuit.compose(self._compr_lstatement(ast.children[5], L, cs, variables, cqubits), inplace=True)
 
                 del cs[q]
                 del cqubits[q]
@@ -992,7 +992,7 @@ class PfoqCompiler:
                     for child in ast.children:
                         if child.width == 0:
                             if before:
-                                C_L = C_L.compose(self._compr_statement(child, L, cs, variables, cqubits))
+                                C_L.compose(self._compr_statement(child, L, cs, variables, cqubits), inplace=True)
                             else:
                                 C_R = self._compr_statement(child, L, cs, variables, cqubits).compose(C_R)
                         else:
@@ -1308,9 +1308,9 @@ class PfoqCompiler:
                     # non-recursive
                     if index == 0:
                         for (cs, ast, L, variables, cqubits) in value:
-                            C_M = C_M.compose(self._compr_statement(ast, L, cs, variables, cqubits))
+                            C_M.compose(self._compr_statement(ast, L, cs, variables, cqubits), inplace=True)
                     else:
-                        C_M = C_M.compose(self._optimize(value))
+                        C_M.compose(self._optimize(value), inplace=True)
 
 
             return C_L.compose(C_M).compose(C_R)
