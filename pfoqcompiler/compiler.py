@@ -190,13 +190,10 @@ class PfoqCompiler:
             if self._verbose_flag:
                 print("- Well-founded")
 
-            
-
-
         # HALVING check
 
         #create call subgraph without -2 edges
-        minus_two_excluded_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) >= -1]
+        minus_two_excluded_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", -42) >= -1]
 
         minus_two_excluded_subgraph = nx.DiGraph()
         minus_two_excluded_subgraph.add_nodes_from(graph.nodes())
