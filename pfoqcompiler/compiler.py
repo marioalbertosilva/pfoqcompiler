@@ -183,16 +183,14 @@ class PfoqCompiler:
         try:
             zero_cycle = nx.find_cycle(zero_weight_subgraph)
             well_founded = False
-
-        except nx.NetworkXNoCycle:
-            pass
-
-        if well_founded:
-            if self._verbose_flag:
-                print("- Well-founded")
-        else:
             raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:",
                                    " -> ".join(zero_cycle))
+
+        except nx.NetworkXNoCycle:
+            if self._verbose_flag:
+                print("- Well-founded")
+
+            
 
 
         # HALVING check
