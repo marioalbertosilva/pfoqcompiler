@@ -1,7 +1,9 @@
 decl f(a){
+	if (|a|>1)then{
 	a[0]*=H;
 	call f(a-[0]);
 	call f(a-[1]);
+	}
 }
 ::
 define q;
