@@ -99,6 +99,9 @@ print("Testing " + (namefile := "palindrome.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,1): [("00110","10110"), ("00010","00010")], (5,1): [("011011","111011"),],
                                                          (0,1): [    ("0",    "1")], (1,1): [("00", "10")]}).run()
 
+print("Testing " + (namefile := "parsing_error.foq"))
+ProgramTester(program=open(namefile, "r").read(), inout={(1,): []}, expected_error=UnexpectedCharacters, expected_error_stage="parsing").run()
+
 print("Testing " + (namefile := "procedure_mutual_recursive.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
 
