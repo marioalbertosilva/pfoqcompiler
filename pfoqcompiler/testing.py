@@ -2,7 +2,7 @@ import unittest
 from pfoqcompiler.compiler import PfoqCompiler
 from pfoqcompiler.errors import WidthError, AncillaIndexError, NotCompiledError
 from qiskit.quantum_info import Statevector
-from typing_extensions import Optional, Union
+from typing_extensions import Optional, Union, Literal, Any, Type
 import numpy as np
 
 
@@ -18,6 +18,13 @@ class ProgramTester():
 
     inout: dict[tuple[int], list[tuple[Union[Statevector, str]]]]
         Inputs to be tested and corresponding outputs. Dictionary of register sizes mapped to input-output pairs.
+
+    expected_error: type[Exception], optional
+        Type of the expected raised exception, if any
+
+    expected_error_stage: ("parsing" | "compilation" | "runtime"), optional
+        If an error is expected, the stage at which it should occur must me specified.
+        It can be raised either during parsing, compilation or at runtime execution.
 
     flags: dict, optional
 
@@ -38,12 +45,17 @@ class ProgramTester():
                  *,
                  program: str,
                  inout: dict[tuple[int], list[tuple[Union[Statevector, str]]]],
-                 **flags):
+                 expected_error: Optional[Type[Exception]] = None,
+                 expected_error_stage: Optional[Literal["parsing", "compilation", "runtime"]] = None,
+                 **flags: dict[str, Any]):
 
         self.classical_simulation = flags.get("classical", False)
         self.program = program
         self.inout = inout
         self.tests = unittest.TestSuite()
+
+        if expected_error_stage not in (None, "parsing", "compilation", "runtime"):
+            raise ValueError(f"Provided expected error stage should be in (None, 'parsing', 'compilation', 'runtime'), not {expected_error_stage}.")
 
         if len(inout) == 0:
             return
@@ -54,7 +66,11 @@ class ProgramTester():
                                       barriers=False,
                                       old_optimize=False)
 
-        self.tests.addTest(TestPFOQParsing(dummy_compiler))
+        if expected_error_stage == "parsing":
+            self.tests.addTest(TestPFOQParsing(dummy_compiler, expected_error=expected_error))
+        else:
+            self.tests.addTest(TestPFOQParsing(dummy_compiler))
+
         for input_sizes, inout_list in self.inout.items():
             compiler = PfoqCompiler(_ast=True,
                                     nb_qubits=input_sizes,
@@ -62,10 +78,16 @@ class ProgramTester():
                                     barriers=False,
                                     old_optimize=False)
 
-            self.tests.addTest(TestPFOQCompilation(compiler, dummy_compiler))
+            if expected_error_stage == "compilation":
+                self.tests.addTest(TestPFOQCompilation(compiler, dummy_compiler, expected_error=expected_error))
+            else:
+                self.tests.addTest(TestPFOQCompilation(compiler, dummy_compiler))
 
             for input, output in inout_list:
-                self.tests.addTest(TestPFOQExecution(compiler, input, output))
+                if expected_error_stage == "runtime":
+                    self.tests.addTest(TestPFOQExecution(compiler, input, output, expected_error=expected_error))
+                else:
+                    self.tests.addTest(TestPFOQExecution(compiler, input, output, expected_error=expected_error))
 
     def run(self):
         """
@@ -85,17 +107,26 @@ class TestPFOQParsing(unittest.TestCase):
         Compiler with program whose parsing is to be tested.
     methodName: str
         Name of the method to be tested.
+    expected_error: type[Exception], optional
+        Type of the expected raised exception, if any
 
     """
 
     def __init__(self,
                  compiler: PfoqCompiler,
-                 methodName: str = "test_parse"):
+                 methodName: str = "test_parse",
+                 expected_error: Optional[Type[Exception]] = None):
         self.compiler = compiler
+        self.expected_error = expected_error
         super().__init__(methodName)
 
     def test_parse(self):
-        self.compiler.parse()
+        if self.expected_error is not None:
+            with self.assertRaises(self.expected_error):
+                self.compiler.parse()
+        else:
+            self.compiler.parse()
+                
 
 
 class TestPFOQCompilation(unittest.TestCase):
@@ -109,15 +140,19 @@ class TestPFOQCompilation(unittest.TestCase):
         Optional compiled program from which the ast can be reused.
     methodName: str
         Name of the method to be tested.
+    expected_error: type[Exception], optional
+        Type of the expected raised exception, if any
 
     """
 
     def __init__(self,
                  compiler: PfoqCompiler,
                  dummy_compiler: Optional[PfoqCompiler] = None,
-                 methodName: str = "test_compile"):
+                 methodName: str = "test_compile",
+                 expected_error: Optional[Type[Exception]] = None):
         self.compiler = compiler
         self.dummy_compiler = dummy_compiler
+        self.expected_error = expected_error
         super().__init__(methodName)
 
     def setUp(self):
@@ -130,7 +165,12 @@ class TestPFOQCompilation(unittest.TestCase):
     def test_compile(self):
         self.assertIsNotNone(self.compiler.ast)
         self.compiler.verify()
-        self.compiler.compile()
+
+        if self.expected_error is not None:
+            with self.assertRaises(self.expected_error):
+                self.compiler.compile()
+        else:
+            self.compiler.compile()
 
 
 class TestPFOQExecution(unittest.TestCase):
@@ -146,6 +186,8 @@ class TestPFOQExecution(unittest.TestCase):
         Expected output of the TestCase
     methodName: str
         Name of the method to be tested.
+    expected_error: type[Exception], optional
+        Type of the expected raised exception, if any
 
     """
 
@@ -153,23 +195,38 @@ class TestPFOQExecution(unittest.TestCase):
                  compiler: PfoqCompiler,
                  input: Union[Statevector, str],
                  output: Union[Statevector, str],
-                 methodName: str = "test_exec"):
+                 methodName: str = "test_exec",
+                 expected_error: Optional[Type[Exception]] = None):
         self.compiler = compiler
         self.input = input
         self.output = output
+        self.expected_error = expected_error
+        self.failed_setup: Optional[Exception] = None
         super().__init__(methodName)
 
     def setUp(self):
         if self.compiler.compiled_circuit is None:
             self.skipTest("Unsuccessful compilation")
             return
-        self.input = manageinout(self.input, self.compiler)
-        self.output = manageinout(self.output, self.compiler)
+        
+        try:
+            self.input = manageinout(self.input, self.compiler)
+            self.output = manageinout(self.output, self.compiler)
+        except Exception as e:
+            self.failed_setup = e
 
     def test_exec(self):
         self.assertIsNotNone(self.compiler.compiled_circuit)
-        self.assertTrue((compiled := self.input.evolve(self.compiler.compiled_circuit)).equiv(self.output),
-                        f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input)}, expected {sv_to_dict(self.output)}")
+
+        if self.expected_error is not None:
+            with self.assertRaises(self.expected_error):
+                if self.failed_setup is not None:
+                    raise self.failed_setup
+                self.assertTrue((compiled := self.input.evolve(self.compiler.compiled_circuit)).equiv(self.output),
+                                f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input)}, expected {sv_to_dict(self.output)}")
+        else:
+            self.assertTrue((compiled := self.input.evolve(self.compiler.compiled_circuit)).equiv(self.output),
+                                f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input)}, expected {sv_to_dict(self.output)}")
 
 
 def manageinout(inout: Union[Statevector, str],
