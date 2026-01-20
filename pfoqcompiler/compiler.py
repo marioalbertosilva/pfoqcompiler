@@ -205,18 +205,13 @@ class PfoqCompiler:
         try:
             minus_two_avoiding_cycle = list(nx.find_cycle(minus_two_excluded_subgraph)[0])
             halving = False
-
-        except nx.NetworkXNoCycle:
-            pass
-
-        if halving:
-            if self._verbose_flag:
-                print("- Halving")
-        else:
             if self._verbose_flag:
                 print("- NOT halving. An example call cycle that does not reduce qubits by half:",
                       " -> ".join(minus_two_avoiding_cycle))
 
+        except nx.NetworkXNoCycle:
+            if self._verbose_flag:
+                print("- Halving")
 
         # WIDTH <= 1 check
         # this step stores a width parameter in the tree that controls the flow in optimize
