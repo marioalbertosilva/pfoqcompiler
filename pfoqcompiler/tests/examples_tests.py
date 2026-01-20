@@ -51,7 +51,7 @@ print("Testing " + (namefile := "example_recursion.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,): [], (1,): [], (15,): []}).run()
 
 print("Testing " + (namefile := "example_register.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(5,): [('00000', '10000')]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(5,): [('00000', '00000')]}).run()
 
 print("Testing " + (namefile := "full_adder-basic.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(6,): [('001010', '011010')]}).run()
@@ -63,7 +63,8 @@ print("Testing " + (namefile := "if_example.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,): [("0000","1110")] }).run()
 
 print("Testing " + (namefile := "integer_input.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(3,): [("000","000")], (5,): [("00000","10000")], (6,): [("000000","010000")]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(4,): [("0000","0001")]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(3,): []}, expected_error=IndexError, expected_error_stage="compilation").run()
 
 print("Testing " + (namefile := "integer.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(5,): [("00000","00001")], (6,): [("000000","000010")]}).run()

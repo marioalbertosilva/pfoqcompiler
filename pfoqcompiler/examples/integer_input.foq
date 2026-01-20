@@ -1,9 +1,9 @@
 decl f[x](a){
   if(|a|>x)then{
-  a[x]*=H;
+  a[x]*=NOT;
   }
 }
 ::
 define q;
 ::
-call f[-42](q);
+call f[-4](q);
