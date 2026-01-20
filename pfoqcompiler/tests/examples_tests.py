@@ -1,5 +1,7 @@
 from pfoqcompiler.testing import ProgramTester
+from lark.exceptions import UnexpectedCharacters
 from pfoqcompiler import __examples_directory__
+from numpy._core._exceptions import _ArrayMemoryError
 import os
 
 os.chdir(__examples_directory__)
@@ -14,7 +16,7 @@ print("Testing " + (namefile := "Bell_qcase.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(2,): []}).run()
 
 print("Testing " + (namefile := "boolean_semantics.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(14,): [("00000000000000","11111111111111")] }).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(14,): [("00000000000000", "11111111111111")] }).run()
 
 print("Testing " + (namefile := "cat_state_parallel.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
@@ -43,9 +45,10 @@ ProgramTester(program=open(namefile, "r").read(), inout={(3,): [("000", "000"), 
 
 print("Testing " + (namefile := "empty.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [('0', '0'), ('1', '1')]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(64,): [('0000000000000000000000000000000000000000000000000000000000000000', '0000000000000000000000000000000000000000000000000000000000000000')]}, expected_error=ValueError, expected_error_stage="runtime").run()
 
 print("Testing " + (namefile := "error_example.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(4,): []}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(4,): []}, expected_error=IndexError, expected_error_stage="compilation").run()
 
 print("Testing " + (namefile := "example_recursion.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,): [], (1,): [], (15,): []}).run()
@@ -91,7 +94,7 @@ print("Testing " + (namefile := "other_gate.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(2,): [] }).run()
 
 print("Testing " + (namefile := "pairs_error.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(5,): [("00110","00111")], (5,): [("011000","01100")]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(5,): []}, expected_error=IndexError, expected_error_stage="compilation").run()
 
 print("Testing " + (namefile := "pairs.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(5,): [("00110","00111")], (5,): [("011000","01100")]}).run()
