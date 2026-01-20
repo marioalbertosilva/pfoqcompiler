@@ -8,4 +8,6 @@ decl f(a){
     }}
 }
 ::
+define q;
+::
 call f(q);

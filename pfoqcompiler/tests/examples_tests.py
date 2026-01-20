@@ -140,4 +140,4 @@ print("Testing " + (namefile := "sum_three.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
 
 print("Testing " + (namefile := "width_two.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (14,): []}).run()
