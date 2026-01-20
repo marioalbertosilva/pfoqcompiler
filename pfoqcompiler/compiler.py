@@ -610,11 +610,12 @@ class PfoqCompiler:
                 gate_ast = ast.children[1]
 
                 if cs:
-                    cH = HGate().control(num_ctrl_qubits=len(cs),
+                    gate = HGate().control(num_ctrl_qubits=len(cs),
                                         label="C" + gate_ast.children[0].value[1:-1],
                                         ctrl_state=_create_control_state(cs))
                     
-                else: gate = Gate(ast.children[0].value[1:-1], 1, [])
+                else: 
+                    gate = Gate(gate_ast.children[0].value[1:-1], 1, [])
 
                 qc.append(gate,list(sorted(cs)) + [qubit])
 
