@@ -1,5 +1,5 @@
 decl f(a,b){
-    a[0] *= Ph(|a|);
+    a[0] *= Ph[lambda x: pi/(2**x)](|a|);
     call f((a)^+,b);
     call g(a,b-[0]);}
 

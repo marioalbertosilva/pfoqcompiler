@@ -14,7 +14,7 @@ decl rot(a){
     if(|a|>1)then{
         qcase(a[-1]) of {
             0-> skip;,
-            1-> a[0] *= Ph(|a|);
+            1-> a[0] *= Ph[lambda x: pi/(2**x)](|a|);
         }
     call rot(a-[-1]);} }
 ::
