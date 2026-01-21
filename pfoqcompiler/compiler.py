@@ -223,7 +223,8 @@ class PfoqCompiler:
                 
 
             if self._optimize_flag and width > 1:
-                print(f"Procedure {function} has width {width}. Turning off optimization.")
+                if self._verbose_flag:
+                    print(f"Procedure {function} has width {width}. Turning off optimization.")
                 self._optimize_flag = False
 
 
