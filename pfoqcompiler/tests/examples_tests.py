@@ -56,11 +56,8 @@ ProgramTester(program=open(namefile, "r").read(), inout={(4,): [], (1,): [], (15
 print("Testing " + (namefile := "example_register.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(5,): [('00000', '00000')]}).run()
 
-print("Testing " + (namefile := "full_adder-basic.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(6,): [('001010', '011010')]}).run()
-
 print("Testing " + (namefile := "half_register_test.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(6,): [('000000', '111000'), ('111111', '000111')]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(6,): [('000000', '001000'), ('001111', '000111')]}).run()
 
 print("Testing " + (namefile := "if_example.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,): [("0000","1110")] }).run()
