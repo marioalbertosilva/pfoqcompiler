@@ -1368,6 +1368,56 @@ class PfoqCompiler:
                                             variables,
                                             cqubits0) + self._sequential_split(cs1, ast.children[2], L, variables, cqubits1)
             
+            case "qcase_statement_two_qubits":
+
+
+                    q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+                    q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+            
+                    for q in [q1, q2]:
+                        if q in cqubits:
+                            raise IndexError(
+                                f"Already controlling on the state of qubit {q}.")
+                        
+
+                    cs_00, cs_01, cs_10, cs_11 = cs.copy(), cs.copy(), cs.copy(), cs.copy()
+                    cs_00[q1] = 0
+                    cs_00[q2] = 0
+                    cs_01[q1] = 0
+                    cs_01[q2] = 1
+                    cs_10[q1] = 1
+                    cs_10[q2] = 0
+                    cs_11[q1] = 1
+                    cs_11[q2] = 1
+
+                    all_cs = [cs_00, cs_01, cs_10, cs_11]
+
+
+
+                    cqubits_00, cqubits_01, cqubits_10, cqubits_11 = cqubits.copy(), cqubits.copy(), cqubits.copy(), cqubits.copy()
+                    cqubits_00[q1] = 0
+                    cqubits_00[q2] = 0
+                    cqubits_01[q1] = 0
+                    cqubits_01[q2] = 1
+                    cqubits_10[q1] = 1
+                    cqubits_10[q2] = 0
+                    cqubits_11[q1] = 1
+                    cqubits_11[q2] = 1
+
+
+                    all_cqubits = [cqubits_00, cqubits_01, cqubits_10, cqubits_11]
+
+                    out = []
+
+                    for i in range(4):
+
+                        out += self._sequential_split(all_cs[i], ast.children[2+i], L, variables, all_cqubits[i]) 
+                    
+                    return out
+
+                    
+
+            
             case "procedure_call":
                 return [(cs, ast, L, variables, cqubits)]
             

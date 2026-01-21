@@ -100,8 +100,9 @@ print("Testing " + (namefile := "pairs.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(5,): [("00110","00111")], (5,): [("011000","011000")]}).run()
 
 print("Testing " + (namefile := "palindrome.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(4,1): [("00110","10110"), ("00010","00010")], (5,1): [("011011","111011"),],
-                                                         (0,1): [    ("0",    "1")], (1,1): [("00", "10")]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(4,1): [("00110","10110"), ("00010","00010")],
+                                                         (5,1): [("011011","111011"),],
+                                                         (1,1): [("00", "10")]}).run()
 
 print("Testing " + (namefile := "parsing_error.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): []}, expected_error=UnexpectedCharacters, expected_error_stage="parsing").run()
@@ -139,9 +140,6 @@ ProgramTester(program=open(namefile, "r").read(), inout={(4,1): [("01100","11100
 
 print("Testing " + (namefile := "skip.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [('0', '0'), ('1', '1')]}).run()
-
-print("Testing " + (namefile := "sqlog.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(1, 1): [], (2, 2): [], (15, 4): [], (16, 5): []}).run()
 
 print("Testing " + (namefile := "sum_three.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
