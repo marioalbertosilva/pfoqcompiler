@@ -97,7 +97,7 @@ print("Testing " + (namefile := "pairs_error.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(5,): []}, expected_error=IndexError, expected_error_stage="compilation").run()
 
 print("Testing " + (namefile := "pairs.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(5,): [("00110","00111")], (5,): [("011000","01100")]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(5,): [("00110","00111")], (5,): [("011000","011000")]}).run()
 
 print("Testing " + (namefile := "palindrome.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,1): [("00110","10110"), ("00010","00010")], (5,1): [("011011","111011"),],
