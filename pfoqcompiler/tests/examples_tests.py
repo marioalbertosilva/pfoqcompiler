@@ -15,6 +15,9 @@ ProgramTester(program=open(namefile, "r").read(), inout={(2,): []}).run()
 print("Testing " + (namefile := "Bell_qcase.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(2,): []}).run()
 
+print("Testing " + (namefile := "boolean_expression.foq"))
+ProgramTester(program=open(namefile, "r").read(), inout={(2,): []}).run()
+
 print("Testing " + (namefile := "boolean_semantics.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(14,): [("00000000000000", "11111111111111")] }).run()
 
@@ -22,7 +25,9 @@ print("Testing " + (namefile := "cat_state_parallel.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
 
 print("Testing " + (namefile := "cat_state.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(1,): [],
+                                                         (2,): [],
+                                                         (15,): [], (16,): []}).run()
 
 print("Testing " + (namefile := "CNOT1.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(2,): [("00", "00"), ("01", "11"), ("01", "11"), ("10", "10")]}).run()
@@ -31,7 +36,9 @@ print("Testing " + (namefile := "CNOT2.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(2,): [("00", "00"), ("01", "11"), ("01", "11"), ("10", "10")]}).run()
 
 print("Testing " + (namefile := "chained-substring.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [],
+                                                         (5,): [("00000", "00000"), ("00010", "00011"), ("01000", "01000")],
+                                                         (16,): []}).run()
 
 print("Testing " + (namefile := "chained-substring2.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
@@ -45,7 +52,7 @@ ProgramTester(program=open(namefile, "r").read(), inout={(3,): [("000", "000"), 
 
 print("Testing " + (namefile := "empty.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [('0', '0'), ('1', '1')]}).run()
-ProgramTester(program=open(namefile, "r").read(), inout={(64,): [('0000000000000000000000000000000000000000000000000000000000000000', '0000000000000000000000000000000000000000000000000000000000000000')]}, expected_error=ValueError, expected_error_stage="runtime").run()
+ProgramTester(program=open(namefile, "r").read(), inout={(64,): [('0'*64, '0'*64)]}, expected_error=ValueError, expected_error_stage="runtime").run()
 
 print("Testing " + (namefile := "error_example.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,): []}, expected_error=IndexError, expected_error_stage="compilation").run()

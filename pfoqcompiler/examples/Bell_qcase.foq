@@ -1,8 +1,9 @@
+# this program describes the circuit from creating a Bell state from input |00>
 ::
 define q;
 ::
-q[0] *= H;
+q[0] *= H; # apply Hadamard to first qubit
 qcase(q[0])of{
-    0->skip;,
-    1->q[1]*=NOT;
+    0->skip;, # identity on negative control
+    1->q[1]*=NOT; # not in positive control
 }

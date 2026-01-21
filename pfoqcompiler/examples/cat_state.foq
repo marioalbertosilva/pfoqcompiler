@@ -1,9 +1,9 @@
-decl cnots(a){
+decl cnots(a){ # defines a chain of CNOT gates
     if(|a|>1)then{
         CNOT(a[0],a[1]);
         call cnots(a-[0]);}}
 ::
 define q;
 ::
-q[0]*=H;
+q[0]*=H; # applies Hadamard to first qubit
 call cnots(q);

@@ -1,4 +1,4 @@
 ::
 define q;
 ::
-CNOT(q[0],q[1]);
+CNOT(q[0],q[1]); #CNOT gate between first and second qubits

@@ -1,10 +1,10 @@
-decl cnots_par(a){
-    if(|a|>2)then{ //recursive case
+decl cnots_par(a){ // parallelized CNOT propagation
+    if(|a|>2)then{ // recursive case
         CNOT(a[0],a[|(a)^-|]);
         call cnots_par((a)^-);
         call cnots_par((a)^+);
     }else{
-    if(|a|==2)then{ //base case
+    if(|a|==2)then{ // base case
     	CNOT(a[0],a[1]);}
 } }
 ::
