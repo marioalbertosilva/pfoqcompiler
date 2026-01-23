@@ -691,11 +691,20 @@ class PfoqCompiler:
         proc_identifier = ast.children[0].value
 
         qregs = []
+        int_variables = []
 
 
         for child in self._functions[proc_identifier].children:
-            if isinstance(child,lark.Token) and child.type == "REGISTER_VARIABLE":
-                qregs += [child.value]
+
+            if isinstance(child, lark.Token):
+            
+                match child.type:
+
+                    case "REGISTER_VARIABLE":
+                        qregs += [child.value]
+
+                    case "INT_IDENTIFIER":
+                        int_variables += [child.value]
 
 
         if proc_identifier not in self._functions:
@@ -716,20 +725,30 @@ class PfoqCompiler:
 
         function = self._functions[proc_identifier]
         
-        function_parameter = function.children[1] if len(function.children) > 2 + len(qregs) else None
 
-        int_parameter = None
 
-        if len(ast.children) > 1 + len(qregs):
-            int_parameter = self._compr_int_expression(ast.children[1], L, cs, variables)
+        num_int_variables = len(int_variables)
 
-        if (function_parameter is None) ^ (int_parameter is None):
+        function_parameters = function.children[1:num_int_variables+1]
+
+        if len(function_parameters) != num_int_variables:
             raise (ValueError(
                 f"Incorrect number of parameters passed to function {proc_identifier}"))
 
-        if int_parameter is not None:
-            old_value = variables[function_parameter] if function_parameter in variables else None
-            variables[function_parameter] = int_parameter
+        int_parameters = {}
+
+        for i in range(num_int_variables):
+            int_parameters[int_variables[i]] = self._compr_int_expression(ast.children[1+i], L, cs, variables)
+
+        old_values = {}
+
+        for param in function_parameters:
+            
+            if variables.get(param):
+                old_values[param] = variables[param] # save previous value if it exsists
+            
+            variables[param] = int_parameters[param]
+
 
         if DEBUG:
             print(f"in compr: calling {proc_identifier} on input {new_L}")
@@ -741,11 +760,14 @@ class PfoqCompiler:
 
             circ = self._compr_lstatement(
                 self._functions[proc_identifier].children[-1], new_L, cs, variables, cqubits)
-            if int_parameter is not None:
-                if old_value is None:
-                    del variables[function_parameter]
-                else:
-                    variables[function_parameter] = old_value
+            
+            if int_parameters:
+                for param in function_parameters:
+                    if not old_values.get(param):
+                        del variables[param]
+                    else:
+                        variables[param] = old_values[param]
+
             return circ
         
         return QuantumCircuit(*self._qr, self._ar)
@@ -1125,9 +1147,20 @@ class PfoqCompiler:
 
                     qregs = []
 
+                    int_variables = []
+
                     for child in self._functions[proc_identifier].children:
-                        if isinstance(child,lark.Token) and child.type == "REGISTER_VARIABLE":
-                            qregs += [child.value]
+                       
+                        if isinstance(child, lark.Token):
+                        
+                            match child.type:
+
+                                case "REGISTER_VARIABLE":
+                                    qregs += [child.value]
+
+                                case "INT_IDENTIFIER":
+                                    int_variables += [child.value]
+
 
                     if proc_identifier not in self._functions:
                         raise NameError(
@@ -1143,27 +1176,43 @@ class PfoqCompiler:
                     if [] in new_L.values():
                         continue
 
+                    
+
                     function = self._functions[proc_identifier]
-                    function_parameter = function.children[1] if len(function.children) > 2 + len(L) else None
-                    int_parameter = None
+                    
 
-                    if len(ast.children) > 1 + len(L):
-                        int_parameter = self._compr_int_expression(
-                            ast.children[1], L, cs, variables)
 
-                    if (function_parameter is None) ^ (int_parameter is None):
+                    num_int_variables = len(int_variables)
+
+                    function_parameters = function.children[1:num_int_variables+1]
+
+                    if len(function_parameters) != num_int_variables:
                         raise (ValueError(
                             f"Incorrect number of parameters passed to function {proc_identifier}"))
 
-                    if int_parameter is not None:
-                        variables[function_parameter] = int_parameter
+                    int_parameters = {}
+
+                    for i in range(num_int_variables):
+                        int_parameters[int_variables[i]] = self._compr_int_expression(ast.children[1+i], L, cs, variables)
+
+                    old_values = {}
+
+                    for param in function_parameters:
+                        
+                        if variables.get(param):
+                            old_values[param] = variables[param] # save previous value if it exsists
+                        
+                        variables[param] = int_parameters[param]
+
 
                     reg_sizes = tuple([len(value) for key, value in sorted(new_L.items())])
 
-                    if (proc_identifier,reg_sizes, int_parameter) in Ancillas:
+                    int_values = tuple([value for key,value in sorted(variables.items())])
+
+                    if (proc_identifier,reg_sizes, int_values) in Ancillas:
                         # merging
 
-                        ancilla, anchored_L = Ancillas[(proc_identifier, reg_sizes, int_parameter)]
+                        ancilla, anchored_L = Ancillas[(proc_identifier, reg_sizes, int_values)]
 
                         C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
 
@@ -1258,8 +1307,9 @@ class PfoqCompiler:
                                 raise AncillaIndexError("Not enough ancillas")
                             
                             reg_sizes = tuple([len(value) for key, value in sorted(new_L.items())])
+                            int_values = tuple([value for key,value in sorted(variables.items())])
 
-                            Ancillas[(proc_identifier, reg_sizes, int_parameter)] = [ancilla, new_L]
+                            Ancillas[(proc_identifier, reg_sizes, int_values)] = [ancilla, new_L]
                             
                             C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
 

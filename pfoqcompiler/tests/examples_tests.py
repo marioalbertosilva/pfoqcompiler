@@ -37,8 +37,8 @@ ProgramTester(program=open(namefile, "r").read(), inout={(2,): [("00", "00"), ("
 
 print("Testing " + (namefile := "chained-substring.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [],
-                                                         (5,): [("00000", "00000"), ("00010", "00011"), ("01000", "01000")],
-                                                         (16,): []}).run()
+                                                         (4,): [("0000", "0000"), ("0001", "0001"), ("0100", "1100")],
+                                                         (5,): [("00000", "00000"), ("00001", "00001"), ("01000", "11000")]}).run()
 
 print("Testing " + (namefile := "chained-substring2.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
@@ -81,6 +81,9 @@ ProgramTester(program=open(namefile, "r").read(), inout={(1,): [("0","1")], (6,)
 
 print("Testing " + (namefile := "merging_with_swaps.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
+
+print("Testing " + (namefile := "multiple_classical_inputs.foq"))
+ProgramTester(program=open(namefile, "r").read(), inout={(2,): [], (14,): []}).run()
 
 print("Testing " + (namefile := "multiple_inputs.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1, 0): [], (2, 0): [], (15, 0): [], (16, 0): []}).run()

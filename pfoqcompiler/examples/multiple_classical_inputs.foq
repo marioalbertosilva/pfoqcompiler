@@ -1,0 +1,13 @@
+decl f[x,y](a){
+	if (x >1)then{
+	a[0]*=H;
+	}
+	if (y == 2) then {
+	a[0]*=NOT;
+	}
+	call f[x,y-1](a-[0]);
+}
+::
+define q;
+::
+call f[2,5](q);

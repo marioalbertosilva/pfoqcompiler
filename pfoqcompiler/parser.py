@@ -63,7 +63,7 @@ int_expression : SIGNED_NUMBER                                                  
 | "|" register_expression "|" "/2"                                                          -> int_expression_half_size
 | parenthesed_int_expression                                                                -> parenthesed_int_expression
 parenthesed_int_expression : "(" int_expression ")"
-statement : "call" PROC_IDENTIFIER ("[" int_expression "]")? "(" register_expression ("," register_expression)* ")" ";"   -> procedure_call
+statement : "call" PROC_IDENTIFIER ("[" int_expression (","  int_expression)* "]")? "(" register_expression ("," register_expression)* ")" ";"   -> procedure_call
 | "qcase" "(" qubit_expression ")" "of" "{" "0" "->" lstatement "," "1" "->" lstatement "}"     -> qcase_statement
 | "qcase" "(" qubit_expression "," qubit_expression ")" "of" "{" "00" "->" lstatement "," "01" "->" lstatement "," "10" "->" lstatement "," "11" "->" lstatement  "}"  -> qcase_statement_two_qubits
 | "if" "(" disjunction ")" "then" "{" lstatement "}" ("else" "{" lstatement "}")?               -> if_statement
@@ -74,7 +74,7 @@ statement : "call" PROC_IDENTIFIER ("[" int_expression "]")? "(" register_expres
 | "skip" ";"                                                                                      -> skip_statement
 lstatement : (statement)*
 def : "define" (REGISTER_IDENTIFIER)+ ";"
-decl : "decl" PROC_IDENTIFIER ("[" INT_IDENTIFIER "]")? "(" REGISTER_VARIABLE ("," REGISTER_VARIABLE)* ")" "{" lstatement "}"
+decl : "decl" PROC_IDENTIFIER ("[" INT_IDENTIFIER  (","  INT_IDENTIFIER)* "]")? "(" REGISTER_VARIABLE ("," REGISTER_VARIABLE)* ")" "{" lstatement "}"
 prg : (decl)* "::" def "::" lstatement
 BOOLEAN_LITERAL: "true"
                 | "false"
@@ -82,7 +82,7 @@ STRING_LITERAL : "\"" /[a-zA-Z][a-zA-Z0-9{}]*/ "\""
 REGISTER_IDENTIFIER : /(q|p|r)[0-9]*/
 REGISTER_VARIABLE : /(a|b|c)[0-9]*/
 PROC_IDENTIFIER : /[a-zA-Z][a-zA-Z_0-9]*/
-INT_IDENTIFIER : /x[0-9]*/
+INT_IDENTIFIER : /(x|y|z)[0-9]*/
 LAMBDA_EXPR : "lambda" /[^:\[\]]+/ ":" /[^:\[\]]+/
 OPBIN : /[+-]/
 COMMENT: "//" /[^\n]/* | "#" /[^\n]/*
