@@ -955,10 +955,11 @@ class PfoqCompiler:
                 if ast.children[1].value == "+":
                     return int(self._compr_int_expression(ast.children[0], L, cs, variables)
                                + self._compr_int_expression(ast.children[2], L, cs, variables))
-                
                 elif ast.children[1].value == "-":
                     return int(self._compr_int_expression(ast.children[0], L, cs, variables)
                                - self._compr_int_expression(ast.children[2], L, cs, variables))
+                else:
+                    raise NotImplementedError(f"Only valid binary operations are + and -, not {_get_data(ast.children[1])}.")
 
             case "size_of_register":
                 return len(self._compr_register_expression(ast.children[0], L, cs, variables))
