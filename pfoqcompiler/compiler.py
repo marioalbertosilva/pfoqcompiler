@@ -47,9 +47,6 @@ class PfoqCompiler:
     optimize_flag: bool
         Whether a compilation technique optimizing the circuit is run, default is True.
 
-    old_optimize: bool
-        Toggle either the old optimization procedure or the new one, default is False.
-
     barriers: bool
         Whether some invisible barriers are added to the circuit to clarify the display, default is False.
 
@@ -72,7 +69,7 @@ class PfoqCompiler:
                  nb_qubits: Sequence[int] = [8],
                  nb_ancillas: int = 1,
                  optimize_flag: bool = True,
-                 old_optimize: bool = False,
+                #  old_optimize: bool = False,
                  debug_flag : bool = False,
                  verbose_flag : bool = False,
                  barriers: bool = False,
@@ -109,7 +106,7 @@ class PfoqCompiler:
         self._optimize_flag = optimize_flag
         self._debug_flag = debug_flag
         self._verbose_flag = verbose_flag
-        self._old_optimize = old_optimize
+        # self._old_optimize = old_optimize
         self._enforce_order = barriers
 
     @property
@@ -1024,8 +1021,8 @@ class PfoqCompiler:
                         if ast.children[1].width:
                             l_CST.append((cs, ast.children[1], L, variables, cqubits))
 
-                        elif self._old_optimize:
-                            C_R.compose(self._compr_lstatement(ast.children[1], L, cs, variables, cqubits), front=True, inplace=True)
+                        # elif self._old_optimize:
+                        #     C_R.compose(self._compr_lstatement(ast.children[1], L, cs, variables, cqubits), front=True, inplace=True)
 
                         else:                            
                             l_M.append((cs, ast.children[1], L, variables, cqubits))
@@ -1035,8 +1032,8 @@ class PfoqCompiler:
                         if ast.children[2].width:
                             l_CST.append((cs, ast.children[2], L, variables, cqubits))
 
-                        elif self._old_optimize:
-                            C_R.compose(self._compr_lstatement(ast.children[2], L, cs, variables, cqubits), front=True, inplace=True)
+                        # elif self._old_optimize:
+                        #     C_R.compose(self._compr_lstatement(ast.children[2], L, cs, variables, cqubits), front=True, inplace=True)
 
                         else:  
                             l_M.append((cs, ast.children[2], L, variables, cqubits))
@@ -1062,8 +1059,8 @@ class PfoqCompiler:
                     if ast.children[1].width:
                         l_CST.append((cs_0, ast.children[1], L, variables,cqubits_0))
 
-                    elif self._old_optimize:
-                        C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits, cqubits_1), front=True, inplace=True)      
+                    # elif self._old_optimize:
+                    #     C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits, cqubits_1), front=True, inplace=True)      
                     
                     else:
                         l_M.append((cs_0, ast.children[1], L, variables, cqubits))
@@ -1073,8 +1070,8 @@ class PfoqCompiler:
                     if ast.children[2].width:
                         l_CST.append((cs_1, ast.children[2], L, variables, cqubits))
 
-                    elif self._old_optimize:
-                        C_R.compose(self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits), front=True, inplace=True) 
+                    # elif self._old_optimize:
+                    #     C_R.compose(self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits), front=True, inplace=True) 
 
                     else:           
                         l_M.append((cs_1, ast.children[2], L, variables, cqubits))
@@ -1125,8 +1122,8 @@ class PfoqCompiler:
                         if ast.children[child_index].width:
                             l_CST.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
 
-                        elif self._old_optimize:
-                            C_R.compose(self._compr_lstatement(ast.children[child_index], L, all_cs[i], variables, all_cqubits[i]), front=True, inplace=True)  
+                        # elif self._old_optimize:
+                        #     C_R.compose(self._compr_lstatement(ast.children[child_index], L, all_cs[i], variables, all_cqubits[i]), front=True, inplace=True)
 
                         else:
                             l_M.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
@@ -1322,42 +1319,37 @@ class PfoqCompiler:
 
             l_CST.sort(key=lambda x: self._input_ordering(x))
 
+        # if self._old_optimize:
+        #     C_L.compose(C_R, inplace=True)
+        #     return C_L
+
+        l_M_split = []
+
+        C_M = QuantumCircuit(*self._qr, self._ar)
 
 
-        if self._old_optimize:
-            C_L.compose(C_R, inplace=True)
-            return C_L
+        for (cs, ast, L, variables,cqubits) in l_M:
 
+            for index, value in enumerate(self._sequential_split(cs, ast, L, variables, cqubits)):
+                
+                try:
+                    l_M_split[index].append(value)
+                except IndexError:
+                    l_M_split.append([value])
 
-        else:
+        for l_t in l_M_split:
+            rec_split = self._recursive_split(l_t)
+            for index, value in enumerate(rec_split):
+                # non-recursive
+                if index == 0:
+                    for (cs, ast, L, variables, cqubits) in value:
+                        C_M.compose(self._compr_statement(ast, L, cs, variables, cqubits), inplace=True)
+                else:
+                    C_M.compose(self._optimize(value), inplace=True)
 
-            l_M_split = []
-
-            C_M = QuantumCircuit(*self._qr, self._ar)
-
-
-            for (cs, ast, L, variables,cqubits) in l_M:
-
-                for index, value in enumerate(self._sequential_split(cs, ast, L, variables, cqubits)):
-                    
-                    try:
-                        l_M_split[index].append(value)
-                    except IndexError:
-                        l_M_split.append([value])
-
-            for l_t in l_M_split:
-                rec_split = self._recursive_split(l_t)
-                for index, value in enumerate(rec_split):
-                    # non-recursive
-                    if index == 0:
-                        for (cs, ast, L, variables, cqubits) in value:
-                            C_M.compose(self._compr_statement(ast, L, cs, variables, cqubits), inplace=True)
-                    else:
-                        C_M.compose(self._optimize(value), inplace=True)
-
-            C_M.compose(C_R, inplace=True)
-            C_M.compose(C_L, front=True, inplace=True)
-            return C_M
+        C_M.compose(C_R, inplace=True)
+        C_M.compose(C_L, front=True, inplace=True)
+        return C_M
 
 
     # CONTEXTUAL LIST
@@ -1847,7 +1839,7 @@ if __name__ == "__main__":
                                 nb_qubits=args.inputsizes,
                                 optimize_flag=args.optimize,
                                 barriers=args.barriers,
-                                old_optimize=args.old_optimize,
+                                # old_optimize=args.old_optimize,
                                 debug_flag = args.debug,
                                 verbose_flag = args.verbose)
         

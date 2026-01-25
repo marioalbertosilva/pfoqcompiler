@@ -63,8 +63,7 @@ class ProgramTester():
         dummy_compiler = PfoqCompiler(program=program,
                                       nb_qubits=next(iter(self.inout)),
                                       optimize_flag=True,
-                                      barriers=False,
-                                      old_optimize=False)
+                                      barriers=False)
 
         if expected_error_stage == "parsing":
             self.tests.addTest(TestPFOQParsing(dummy_compiler, expected_error=expected_error))
@@ -75,7 +74,6 @@ class ProgramTester():
             compiler = PfoqCompiler(nb_qubits=input_sizes,
                                     optimize_flag=True,
                                     barriers=False,
-                                    old_optimize=False,
                                     _no_ast=True)
 
             if expected_error_stage == "compilation":
