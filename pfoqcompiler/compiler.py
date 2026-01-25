@@ -5,10 +5,11 @@ Main class for PFOQ programs compilation
 
 
 import lark
+from lark import Tree, Token
 import argparse
 import matplotlib.pyplot as plt
 import networkx as nx
-from typing_extensions import Optional, Union
+from typing_extensions import Optional, Union, Sequence
 from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister
 from qiskit.circuit import Qubit
 from qiskit.circuit.library import HGate, XGate, CCXGate, SwapGate, RYGate, CPhaseGate, PhaseGate, Barrier
@@ -37,7 +38,7 @@ class PfoqCompiler:
     filename: str, optional
         Path linking to the file containing the PFOQ program to compile.
 
-    nb_qubits: int
+    nb_qubits: Sequence[int]
         Number of data qubits to consider, aka the size of the input.
 
     nb_ancillas: int
@@ -68,7 +69,7 @@ class PfoqCompiler:
     def __init__(self,
                  program: Optional[str] = None,
                  filename: Optional[str] = None,
-                 nb_qubits: list[int] = [8],
+                 nb_qubits: Sequence[int] = [8],
                  nb_ancillas: int = 1,
                  optimize_flag: bool = True,
                  old_optimize: bool = False,
@@ -146,6 +147,8 @@ class PfoqCompiler:
         - Bounded-width: recursive procedure calls occur on orthogonal computation branches   
         """
 
+        assert self._ast is not None, "No AST is available."
+
         if self._verbose_flag:
             print("\nProperties:")
 
@@ -156,7 +159,7 @@ class PfoqCompiler:
             if DEBUG:
                 assert child.data == "decl"
 
-            function_name = child.children[0].value
+            function_name = _get_data(child.children[0])
             
             self._functions[function_name] = child
 
@@ -231,12 +234,6 @@ class PfoqCompiler:
 
         if max_width <= 1 and self._verbose_flag:
             print(f"- Bounded width: {max_width}")
-
-        # Determine fragment:
-        # if max_width <= 1 and halving: print("")
-
-
-    
 
     def compile(self, remove_idle_wires: bool = True):
         """Compile the program.
@@ -332,31 +329,30 @@ class PfoqCompiler:
         """
         Compiles program statement of the input program.
         """
-
+        assert self._ast is not None, "No ast is available"
         program_statement = self._ast.children[-1]
 
         if DEBUG:
             assert (program_statement.data == "lstatement")
 
         register_definition = self._ast.children[-2]
+        assert isinstance(register_definition, Tree)
 
-        if DEBUG:
-            assert (register_definition.data == "def")
+        if _DEBUG:
+            assert (_get_data(register_definition) == "def")
 
         # relative qubit addresses
-        L = {reg.value: list(range(nb)) for reg, nb in zip(register_definition.children, self._nb_qubits)}
-
-        # set absolute qubit addresses
+        L = {_get_data(reg): list(range(nb)) for reg, nb in zip(register_definition.children, self._nb_qubits)}
         for i in range(len(register_definition.children)):
 
             reg = register_definition.children[i]
-            relative_addresses = L[reg.value]
+            relative_addresses = L[_get_data(reg)]
 
             nb_qubits_before = sum(self._nb_qubits[:i])
 
             absolute_addresses = [n + nb_qubits_before for n in relative_addresses]
 
-            L[reg] = absolute_addresses
+            L[_get_data(reg)] = absolute_addresses
 
 
         self._qubit_registers = register_definition.children
@@ -603,11 +599,11 @@ class PfoqCompiler:
 
                 if cs:
                     gate = HGate().control(num_ctrl_qubits=len(cs),
-                                        label="C" + gate_ast.children[0].value[1:-1],
+                                        label="C" + _get_data(gate_ast.children[0])[1:-1],
                                         ctrl_state=_create_control_state(cs))
                     
                 else: 
-                    gate = Gate(gate_ast.children[0].value[1:-1], 1, [])
+                    gate = Gate(_get_data(gate_ast.children[0])[1:-1], 1, [])
 
                 qc.append(gate,list(sorted(cs)) + [qubit])
 
@@ -804,10 +800,10 @@ class PfoqCompiler:
         return qubit
 
 
-    def _compr_register_identifier(self, ast, L, cs, variables) -> int:
+    def _compr_register_identifier(self, ast, L, cs, variables) -> list[int]:
         return L[ast.children[0].value]
     
-    def _compr_register_variable(self, ast, L, cs, variables) -> int:
+    def _compr_register_variable(self, ast, L, cs, variables) -> list[int]:
         return L[ast.children[0].value]
 
     def _compr_parenthesed_register_expression(self, ast, L, cs, variables) -> list[int]:
@@ -838,8 +834,6 @@ class PfoqCompiler:
             m = ceil(len(qubit_list)/2)
             return qubit_list[:m]
 
-
-
     def _compr_register_identifier_second_half(self,ast,L,cs,variables) -> list[int]:
 
         qubit_list = L[ast.children[0].value]
@@ -848,10 +842,6 @@ class PfoqCompiler:
         else:
             m = ceil(len(qubit_list)/2)
             return qubit_list[m:]
-
-    
-    
-
 
     def _compr_register_expression_minus(self, ast, L, cs, variables) -> list[int]:
 
@@ -866,7 +856,6 @@ class PfoqCompiler:
         #indices written as nonnegative values in decreasing order
 
         return [qubit for index,qubit in enumerate(qubit_list) if index not in nonnegative_indices]
-        
 
     def _compr_register_expression(self, ast, L, cs, variables) -> list[int]:
 
@@ -989,7 +978,7 @@ class PfoqCompiler:
                 return int(len(self._compr_register_expression(ast.children[0], L, cs, variables))/2)
             
             case _:
-                NotImplementedError(
+                raise NotImplementedError(
                     f"Integer expression {ast.data} not yet handled.")
             
 
@@ -1609,7 +1598,7 @@ def _create_call_graph(call_graph: nx.DiGraph, f: str, g: Union[lark.Tree, lark.
 
         if g.data == "procedure_call":
 
-            proc_identifier = g.children[0].value
+            proc_identifier = _get_data(g.children[0])
 
             qubit_difference = 0
 
@@ -1646,28 +1635,31 @@ def _find_register_variable(g: Union[lark.Tree, lark.Token]) -> str:
         # DFS on first node:
 
         for child in g.children:
-
             out = _find_register_variable(child)
-            
-            if out: return out
+            if out: 
+                return out
+        raise ValueError("No register variables found.")
     
     elif isinstance(g, lark.Token):
 
         if g.type != "REGISTER_VARIABLE":
-            
             raise ValueError(
-                f"Procedure calls on qubit inputs not allowed. Found example for qubit list \'{g}\'."
+                f"Procedure calls on qubit inputs not allowed. Found example for qubit list '{g}'."
             )
 
         return g.value
     
-    else: raise ValueError(f"Received unexpected value {g}.")
-        
+    else:
+        raise ValueError(f"Received unexpected value {g}.")
 
 
-
-
-
+def _get_data(larkobject: Union[Tree, Token]) -> str:
+    if isinstance(larkobject, Tree):
+        return larkobject.data
+    elif isinstance(larkobject, Token):
+        return larkobject.value
+    else:
+        raise TypeError(f"Only a Tree or a Token can have their data extracted, not {type(larkobject).__name__}.")
 
 
 def _determine_qubit_difference(g: Union[lark.Tree, lark.Token]) -> int:
