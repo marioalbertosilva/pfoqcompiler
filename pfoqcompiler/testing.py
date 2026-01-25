@@ -16,7 +16,7 @@ class ProgramTester():
     program: str
         PFOQ program to test.
 
-    inout: dict[tuple[int], list[tuple[Union[Statevector, str]]]]
+    inout: dict[tuple[int, ...], list[tuple[Union[Statevector, str], ...]]]
         Inputs to be tested and corresponding outputs. Dictionary of register sizes mapped to input-output pairs.
 
     expected_error: type[Exception], optional
@@ -44,7 +44,7 @@ class ProgramTester():
     def __init__(self,
                  *,
                  program: str,
-                 inout: dict[tuple[int], list[tuple[Union[Statevector, str]]]],
+                 inout: dict[tuple[int, ...], list[tuple[Union[Statevector, str], ...]]],
                  expected_error: Optional[Type[Exception]] = None,
                  expected_error_stage: Optional[Literal["parsing", "compilation", "runtime"]] = None,
                  **flags: dict[str, Any]):
@@ -210,23 +210,26 @@ class TestPFOQExecution(unittest.TestCase):
             return
         
         try:
-            self.input = manageinout(self.input, self.compiler)
-            self.output = manageinout(self.output, self.compiler)
+            self.input_statevector = manageinout(self.input, self.compiler)
+            self.output_statevector = manageinout(self.output, self.compiler)
         except Exception as e:
             self.failed_setup = e
 
     def test_exec(self):
         self.assertIsNotNone(self.compiler.compiled_circuit)
+        assert(self.compiler.compiled_circuit is not None)
 
         if self.expected_error is not None:
             with self.assertRaises(self.expected_error):
                 if self.failed_setup is not None:
                     raise self.failed_setup
-                self.assertTrue((compiled := self.input.evolve(self.compiler.compiled_circuit)).equiv(self.output),
-                                f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input)}, expected {sv_to_dict(self.output)}")
+                self.assertIsNotNone(self.input_statevector)
+                assert(self.input_statevector is not None)
+                self.assertTrue((compiled := self.input_statevector.evolve(self.compiler.compiled_circuit)).equiv(self.output_statevector),
+                                f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input_statevector)}, expected {sv_to_dict(self.output_statevector)}")
         else:
-            self.assertTrue((compiled := self.input.evolve(self.compiler.compiled_circuit)).equiv(self.output),
-                                f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input)}, expected {sv_to_dict(self.output)}")
+            self.assertTrue((compiled := self.input_statevector.evolve(self.compiler.compiled_circuit)).equiv(self.output_statevector),
+                                f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input_statevector)}, expected {sv_to_dict(self.output_statevector)}")
 
 
 def manageinout(inout: Union[Statevector, str],
@@ -250,6 +253,7 @@ def manageinout(inout: Union[Statevector, str],
 
     """
     if isinstance(inout, str):
+        assert compiler.compiled_circuit is not None
         state = np.zeros(int(2**compiler.compiled_circuit.num_qubits))
         state[indexket(inout.zfill(compiler._nb_total_wires))] = 1
 
