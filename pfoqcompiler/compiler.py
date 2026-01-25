@@ -22,7 +22,7 @@ from pfoqcompiler.errors import WellFoundedError, WidthError, AncillaIndexError,
 from pfoqcompiler.parser import PfoqParser
 
 
-DEBUG = False
+_DEBUG = False
 
 
 class PfoqCompiler:
@@ -156,8 +156,9 @@ class PfoqCompiler:
             raise RuntimeWarning("Empty program")
 
         for child in self._ast.children[:-2]:
-            if DEBUG:
-                assert child.data == "decl"
+            assert isinstance(child, Tree)
+            if _DEBUG:
+                assert _get_data(child) == "decl"
 
             function_name = _get_data(child.children[0])
             
@@ -320,7 +321,7 @@ class PfoqCompiler:
 
 
         except Exception as exception:
-            if DEBUG:
+            if _DEBUG:
                 print("Program has been successfully compiled, but could not be displayed due to:")
             raise exception
         
@@ -332,8 +333,9 @@ class PfoqCompiler:
         assert self._ast is not None, "No ast is available"
         program_statement = self._ast.children[-1]
 
-        if DEBUG:
-            assert (program_statement.data == "lstatement")
+
+        if _DEBUG:
+            assert (_get_data(program_statement) == "lstatement")
 
         register_definition = self._ast.children[-2]
         assert isinstance(register_definition, Tree)
@@ -357,7 +359,7 @@ class PfoqCompiler:
 
         self._qubit_registers = register_definition.children
 
-        if DEBUG:
+        if _DEBUG:
             assert (len(self._nb_qubits) == len(self._qubit_registers) )
 
         self._qr = [QuantumRegister(nb, name=f"{reg}") for reg, nb in zip(register_definition.children, self._nb_qubits)]
@@ -747,7 +749,7 @@ class PfoqCompiler:
             variables[param] = int_parameters[param]
 
 
-        if DEBUG:
+        if _DEBUG:
             print(f"in compr: calling {proc_identifier} on input {new_L}")
 
         if new_L:
@@ -1286,7 +1288,7 @@ class PfoqCompiler:
                                         i += 1
 
                     else:
-                        if DEBUG:
+                        if _DEBUG:
                             print(f"in optimize: calling {proc_identifier} on input {new_L}")
 
                         if len(cs) > 0:
