@@ -347,7 +347,7 @@ class PfoqCompiler:
             L[_get_data(reg)] = list(range(nb_qubits_before, nb+nb_qubits_before))
             nb_qubits_before += nb
 
-        self._qubit_registers = register_definition.children
+        self._qubit_registers = [_get_data(reg) for reg in register_definition.children]
 
         if _DEBUG:
             assert (len(self._nb_qubits) == len(self._qubit_registers) )
@@ -1127,7 +1127,7 @@ class PfoqCompiler:
 
 
                     if ast.children[1].width: # type: ignore
-                        l_CST.append((cs_0, ast.children[1], L, variables,cqubits_0))
+                        l_CST.append((cs_0, ast.children[1], L, variables, cqubits_0))
 
                     elif self._old_optimize:
                         C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits, cqubits_1), front=True, inplace=True)
