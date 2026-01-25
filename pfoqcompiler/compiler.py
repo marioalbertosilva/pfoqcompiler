@@ -383,7 +383,7 @@ class PfoqCompiler:
     def _compr_lstatement(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
         qc = QuantumCircuit(*self._qr, self._ar)
         for child in ast.children:
-            qc = qc.compose(self._compr_statement(child, L, cs, variables, cqubits))
+            qc.compose(self._compr_statement(child, L, cs, variables, cqubits), inplace=True)
         return qc
 
 
