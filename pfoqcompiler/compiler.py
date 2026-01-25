@@ -535,7 +535,7 @@ class PfoqCompiler:
 
                 if len(ast.children[1].children) == 2: 
 
-                    func = ast.children[1].children[0] #function parameter given as string
+                    func = _get_data(ast.children[1].children[0]) #function parameter given as string
                     theta = eval(func)(theta)
 
                 ry = RYGate(theta)
@@ -555,7 +555,7 @@ class PfoqCompiler:
 
                 if len(ast.children[1].children) == 2: 
 
-                    func = ast.children[1].children[0] #function parameter given as string
+                    func = _get_data(ast.children[1].children[0]) #function parameter given as string
                     theta = eval(func)(theta)
 
                 if cs:
@@ -1538,10 +1538,11 @@ class PfoqCompiler:
 
     # POST-TREATMENT: REMOVE IDLE ANCILLAS
     def remove_idle_wires(self):
+        assert self._compiled_circuit is not None, "No compiled circuit."
         qc_out = self._compiled_circuit.copy()
         gate_count = count_gates(qc_out)
         for qubit, count in gate_count.items():
-            if count == 0 and type(qubit) != qiskit.circuit.Qubit:
+            if count == 0 and type(qubit) != Qubit:
                 qc_out.qubits.remove(qubit)
                 self._nb_ancillas -= 1
                 self._nb_total_wires -= 1
