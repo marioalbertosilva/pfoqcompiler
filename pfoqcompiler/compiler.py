@@ -9,7 +9,7 @@ from lark import Tree, Token
 import argparse
 import matplotlib.pyplot as plt
 import networkx as nx
-from typing_extensions import Optional, Union, Sequence
+from typing_extensions import Optional, Union, Sequence, Literal
 from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister
 from qiskit.circuit import Qubit
 from qiskit.circuit.library import HGate, XGate, CCXGate, SwapGate, RYGate, CPhaseGate, PhaseGate, Barrier
@@ -137,8 +137,6 @@ class PfoqCompiler:
 
         if self._verbose_flag:
             print(f"File \'{self._filename}\' parsed successfully.")
-
-    
 
     def verify(self):
         """Statically check the following properties:
@@ -324,7 +322,6 @@ class PfoqCompiler:
             if _DEBUG:
                 print("Program has been successfully compiled, but could not be displayed due to:")
             raise exception
-        
 
     def _compr_prg(self) -> QuantumCircuit:
         """
@@ -332,7 +329,7 @@ class PfoqCompiler:
         """
         assert self._ast is not None, "No ast is available"
         program_statement = self._ast.children[-1]
-
+        assert isinstance(program_statement, Tree)
 
         if _DEBUG:
             assert (_get_data(program_statement) == "lstatement")
@@ -362,7 +359,6 @@ class PfoqCompiler:
         
         return qc
 
-
     def _compute_call_graph(self) -> nx.DiGraph:
         """
         Generates the program call graph.
@@ -373,14 +369,23 @@ class PfoqCompiler:
             _create_call_graph(initial_graph, f, g)
         return initial_graph
 
-    def _compr_lstatement(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
+    def _compr_lstatement(self,
+                          ast: Tree,
+                          L: dict[str, list[int]],
+                          cs: dict[int, Literal[0, 1]],
+                          variables: dict[str, int],
+                          cqubits: dict[int, Literal[0, 1]]) -> QuantumCircuit:
         qc = QuantumCircuit(*self._qr, self._ar)
         for child in ast.children:
             qc.compose(self._compr_statement(child, L, cs, variables, cqubits), inplace=True)
         return qc
 
-
-    def _compr_statement(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
+    def _compr_statement(self,
+                          ast: Tree,
+                          L: dict[str, list[int]],
+                          cs: dict[int, Literal[0, 1]],
+                          variables: dict[str, int],
+                          cqubits: dict[int, Literal[0, 1]]) -> QuantumCircuit:
         """
         Manages compilation of a PFOQ statement by calling different subfunctions.
         """
@@ -409,7 +414,7 @@ class PfoqCompiler:
 
             case "qcase_statement":
 
-                q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+                q = self._compr_qubit_expression(ast.children[0], L, cs, variables)
 
                 if q in cqubits:
                     raise IndexError(f"Already controlling on the state of qubit {q}.")
@@ -432,8 +437,8 @@ class PfoqCompiler:
             
             case "qcase_statement_two_qubits":
 
-                q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
-                q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+                q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
+                q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
 
                 for q in [q1,q2]:
                     if q in cqubits:
@@ -491,13 +496,13 @@ class PfoqCompiler:
                 raise NotImplementedError(f"Statement {ast.data} not handled.")
 
     def _compr_gate_application(self,
-                                ast: lark.Tree,
-                                L: dict[str,list[int]],
-                                cs: dict[int,int],
-                                variables: dict[lark.Token,int],
-                                cqubits: dict[int,int]) -> QuantumCircuit:
+                                ast: Tree,
+                                L: dict[str, list[int]],
+                                cs: dict[int, Literal[0, 1]],
+                                variables: dict[str, int],
+                                cqubits: dict[int, Literal[0, 1]]) -> QuantumCircuit:
 
-        qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+        qubit = self._compr_qubit_expression(ast.children[0], L, cs, variables)
 
         if qubit in cqubits:
             raise IndexError(f"Cannot apply gate on qubit {qubit} that is controlled on its state.")
@@ -509,14 +514,16 @@ class PfoqCompiler:
         match gate_name:
 
             case "not_gate":
-                if cs: qc.mcx(list(sorted(cs)),qubit,ctrl_state = _create_control_state(cs))
-                else: qc.x(qubit)
+                if cs:
+                    qc.mcx(list(sorted(cs)), qubit, ctrl_state = _create_control_state(cs))
+                else:
+                    qc.x(qubit)
 
             case "hadamard_gate":
                 if cs:
                     cH = HGate().control(num_ctrl_qubits=len(cs),
                                          label="H",
-                                        ctrl_state=_create_control_state(cs))
+                                         ctrl_state=_create_control_state(cs))
                     
                     qc.append(cH,list(sorted(cs)) + [qubit])
                 else:
@@ -524,19 +531,19 @@ class PfoqCompiler:
             
             case "rotation_gate":
 
-                theta = self._compr_int_expression(ast.children[1].children[-1],L,cs,variables) #integer input given to gate
+                theta = self._compr_int_expression(ast.children[1].children[-1], L, cs, variables) # integer input given to gate
 
                 if len(ast.children[1].children) == 2: 
 
-                    func = _get_data(ast.children[1].children[0]) #function parameter given as string
+                    func = _get_data(ast.children[1].children[0]) # function parameter given as string
                     theta = eval(func)(theta)
 
                 ry = RYGate(theta)
 
                 if cs:
                     cRY = ry.control(num_ctrl_qubits=len(cs),
-                                        label=f"Ry({theta})",
-                                        ctrl_state=_create_control_state(cs))
+                                     label=f"Ry({theta})",
+                                     ctrl_state=_create_control_state(cs))
                     
                     qc.append(cRY,list(sorted(cs)) + [qubit])
                 else:
@@ -558,7 +565,7 @@ class PfoqCompiler:
 
             case "toffoli_gate":
                 
-                qubits = [self._compr_qubit_expression(ast.children[i], L, cs, variables, cqubits) for i in range(3)]
+                qubits = [self._compr_qubit_expression(ast.children[i], L, cs, variables) for i in range(3)]
 
                 for i in range(3):
                     if qubits[i] in cs:
@@ -570,13 +577,13 @@ class PfoqCompiler:
 
             case "cnot_gate":
 
-                qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables,cqubits)
+                qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
                 if qubit1 in cs:
                     raise IndexError(f"Multiple controls on same qubit {qubit1}.")
                 
                 cs[qubit1] = 1
 
-                qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables,cqubits)
+                qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
 
                 if qubit2 in cs:
                     raise IndexError(
@@ -607,17 +614,21 @@ class PfoqCompiler:
 
         return qc
 
+    def _compr_cnot_gate(self,
+                         ast: Tree,
+                         L: dict[str, list[int]],
+                         cs: dict[int, Literal[0, 1]],
+                         variables: dict[str, int],
+                         cqubits: dict[int, Literal[0, 1]]) -> QuantumCircuit:
 
-    def _compr_cnot_gate(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
-
-        qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+        qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
         if qubit1 in cqubits:
             raise IndexError(f"Multiple controls on same qubit {qubit1}.")
         
         cs[qubit1] = 1
         cqubits[qubit1] = 1
 
-        qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+        qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
 
         if qubit2 in cqubits:
             raise IndexError(
@@ -632,16 +643,19 @@ class PfoqCompiler:
         del cqubits[qubit1]
 
         return qc
-    
 
+    def _compr_swap_gate(self,
+                         ast: Tree,
+                         L: dict[str, list[int]],
+                         cs: dict[int, Literal[0, 1]],
+                         variables: dict[str, int],
+                         cqubits: dict[int, Literal[0, 1]]) -> QuantumCircuit:
 
-    def _compr_swap_gate(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
-
-        qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+        qubit1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
         if qubit1 in cqubits:
             raise IndexError(f"Cannot swap control qubit {qubit1}.")
         
-        qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+        qubit2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
         
         if qubit2 in cqubits:
             raise IndexError(f"Cannot swap control qubit {qubit2}.")
@@ -659,10 +673,15 @@ class PfoqCompiler:
 
         qc.append(gate, list(sorted(cs)) + [qubit1, qubit2])
         return qc
-    
-    def _compr_toffoli_gate(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
 
-        Q = [self._compr_qubit_expression(ast.children[i], L, cs, variables, cqubits) for i in range(3)]
+    def _compr_toffoli_gate(self,
+                            ast: Tree,
+                            L: dict[str, list[int]],
+                            cs: dict[int, Literal[0, 1]],
+                            variables: dict[str, int],
+                            cqubits: dict[int, Literal[0, 1]]) -> QuantumCircuit:
+
+        Q = [self._compr_qubit_expression(ast.children[i], L, cs, variables) for i in range(3)]
 
         for i in range(3):
             if Q[i] in cqubits:
@@ -676,10 +695,15 @@ class PfoqCompiler:
 
         return qc
 
-    def _compr_procedure_call(self, ast, L, cs, variables, cqubits) -> QuantumCircuit:
+    def _compr_procedure_call(self,
+                              ast: Tree,
+                              L: dict[str, list[int]],
+                              cs: dict[int, Literal[0, 1]],
+                              variables: dict[str, int],
+                              cqubits: dict[int, Literal[0, 1]]) -> QuantumCircuit:
         
 
-        proc_identifier = ast.children[0].value
+        proc_identifier = _get_data(ast.children[0])
 
         qregs = []
         int_variables = []
@@ -687,36 +711,27 @@ class PfoqCompiler:
 
         for child in self._functions[proc_identifier].children:
 
-            if isinstance(child, lark.Token):
+            if isinstance(child, Token):
             
                 match child.type:
-
                     case "REGISTER_VARIABLE":
                         qregs += [child.value]
 
                     case "INT_IDENTIFIER":
                         int_variables += [child.value]
 
-
         if proc_identifier not in self._functions:
             raise NameError(f"Called function {proc_identifier} was not declared.")
-        
-        
 
         new_L = L.copy()
-
 
         for index in range(-len(qregs),0):
             new_L[qregs[index]] = self._compr_register_expression(ast.children[index], L, cs, variables)
 
-
         if [] in new_L.values():
             return QuantumCircuit(*self._qr, self._ar)
 
-
         function = self._functions[proc_identifier]
-        
-
 
         num_int_variables = len(int_variables)
 
@@ -740,7 +755,6 @@ class PfoqCompiler:
             
             variables[param] = int_parameters[param]
 
-
         if _DEBUG:
             print(f"in compr: calling {proc_identifier} on input {new_L}")
 
@@ -763,17 +777,19 @@ class PfoqCompiler:
         
         return QuantumCircuit(*self._qr, self._ar)
 
-
-
-    def _compr_qubit_expression(self, ast, L, cs, variables, cqubits) -> int:
+    def _compr_qubit_expression(self,
+                                ast: Tree,
+                                L: dict[str, list[int]],
+                                cs: dict[int, Literal[0, 1]],
+                                variables: dict[str, int]) -> int:
 
         match ast.data:
 
             case "qubit_expression_identifier":
-                qubit_list = self._compr_register_identifier(ast, L, cs, variables)
+                qubit_list = self._compr_register_identifier(ast, L)
 
             case "qubit_expression_variable":
-                qubit_list = self._compr_register_variable(ast, L, cs, variables)
+                qubit_list = self._compr_register_variable(ast, L)
 
             case "qubit_expression_parenthesed":
                 qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables)
@@ -793,51 +809,73 @@ class PfoqCompiler:
 
         return qubit
 
+    def _compr_register_identifier(self,
+                                   ast: Tree,
+                                   L: dict[str, list[int]]) -> list[int]:
+        return L[_get_data(ast.children[0])]
 
-    def _compr_register_identifier(self, ast, L, cs, variables) -> list[int]:
-        return L[ast.children[0].value]
-    
-    def _compr_register_variable(self, ast, L, cs, variables) -> list[int]:
-        return L[ast.children[0].value]
+    def _compr_register_variable(self,
+                                 ast: Tree,
+                                 L: dict[str, list[int]]) -> list[int]:
+        return L[_get_data(ast.children[0])]
 
-    def _compr_parenthesed_register_expression(self, ast, L, cs, variables) -> list[int]:
+    def _compr_parenthesed_register_expression(self,
+                                               ast: Tree,
+                                               L: dict[str, list[int]],
+                                               cs: dict[int, Literal[0, 1]],
+                                               variables: dict[str, int]) -> list[int]:
         return self._compr_register_expression(ast.children[0], L, cs, variables)
 
-    def _compr_parenthesed_register_expression_first_half(self, ast, L, cs, variables) -> list[int]:
+    def _compr_parenthesed_register_expression_first_half(self,
+                                                          ast: Tree,
+                                                          L: dict[str, list[int]],
+                                                          cs: dict[int, Literal[0, 1]],
+                                                          variables: dict[str, int]) -> list[int]:
         qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables)
         if len(qubit_list) <= 1:
             return []
         else:
             m = ceil(len(qubit_list)/2)
             return qubit_list[:m]
-        
-    def _compr_parenthesed_register_expression_second_half(self, ast, L, cs, variables) -> list[int]:
+
+    def _compr_parenthesed_register_expression_second_half(self,
+                                                           ast: Tree,
+                                                           L: dict[str, list[int]],
+                                                           cs: dict[int, Literal[0, 1]],
+                                                           variables: dict[str, int]) -> list[int]:
         qubit_list = self._compr_parenthesed_register_expression(ast.children[0], L, cs, variables)
         if len(qubit_list) <= 1:
             return []
         else:
             m = ceil(len(qubit_list)/2)
             return qubit_list[m:]
-        
-        
-    def _compr_register_identifier_first_half(self,ast,L,cs,variables) -> list[int]:
-        qubit_list = L[ast.children[0].value]
+
+    def _compr_register_identifier_first_half(self,
+                                              ast: Tree,
+                                              L: dict[str, list[int]]) -> list[int]:
+        qubit_list = L[_get_data(ast.children[0])]
         if len(qubit_list) <= 1:
             return []
         else:
             m = ceil(len(qubit_list)/2)
             return qubit_list[:m]
 
-    def _compr_register_identifier_second_half(self,ast,L,cs,variables) -> list[int]:
+    def _compr_register_identifier_second_half(self,
+                                               ast: Tree,
+                                               L: dict[str, list[int]]) -> list[int]:
 
-        qubit_list = L[ast.children[0].value]
+        qubit_list = L[_get_data(ast.children[0])]
         if len(qubit_list) <= 1:
             return []
         else:
             m = ceil(len(qubit_list)/2)
             return qubit_list[m:]
 
-    def _compr_register_expression_minus(self, ast, L, cs, variables) -> list[int]:
+    def _compr_register_expression_minus(self,
+                                         ast: Tree,
+                                         L: dict[str, list[int]],
+                                         cs: dict[int, Literal[0, 1]],
+                                         variables: dict[str, int]) -> list[int]:
 
         qubit_list = self._compr_register_expression(ast.children[0], L, cs, variables)
         indices = [self._compr_int_expression(ast.children[i], L, cs, variables) for i in range(1,len(ast.children))]
@@ -851,39 +889,47 @@ class PfoqCompiler:
 
         return [qubit for index,qubit in enumerate(qubit_list) if index not in nonnegative_indices]
 
-    def _compr_register_expression(self, ast, L, cs, variables) -> list[int]:
+    def _compr_register_expression(self,
+                                   ast: Tree,
+                                   L: dict[str, list[int]],
+                                   cs: dict[int, Literal[0, 1]],
+                                   variables: dict[str, int]) -> list[int]:
 
         match ast.data:
-
             case "register_expression_identifier":
-                return self._compr_register_identifier(ast, L, cs, variables)
-            
+                return self._compr_register_identifier(ast, L)
+
             case "register_variable":
-                return self._compr_register_variable(ast, L, cs, variables)
-            
+                return self._compr_register_variable(ast, L)
+
             case "register_expression_parenthesed" | "parenthesed_register_expression":
                 return self._compr_parenthesed_register_expression(ast, L, cs, variables)
-            
+
             case "register_expression_minus":
                 return self._compr_register_expression_minus(ast, L, cs, variables)
-            
+
             case "register_expression_parenthesed_first_half":
                 return self._compr_parenthesed_register_expression_first_half(ast, L, cs, variables)
-            
+
             case "register_expression_parenthesed_second_half":
                 return self._compr_parenthesed_register_expression_second_half(ast, L, cs, variables)
 
             case "register_identifier_first_half":
-                return self._compr_register_identifier_first_half(ast, L, cs, variables)
-            
+                return self._compr_register_identifier_first_half(ast, L)
+
             case "register_identifier_second_half":
-                return self._compr_register_identifier_second_half(ast, L, cs, variables)
+                return self._compr_register_identifier_second_half(ast, L)
             
             case _:
                 raise NotImplementedError(
                         f"Register expression {ast.data} not handled.")
 
-    def _compr_disjunction(self, ast, L, cs, variables, cqubits) -> bool:
+    def _compr_disjunction(self,
+                           ast: Tree,
+                           L: dict[str, list[int]],
+                           cs: dict[int, Literal[0, 1]],
+                           variables: dict[str, int],
+                           cqubits: dict[int, Literal[0, 1]]) -> bool:
         match ast.data:
             case "multiple_conjs": # Lazy evaluation
                 return any(self._compr_conjunction(child, L, cs, variables, cqubits) for child in ast.children)
@@ -892,7 +938,12 @@ class PfoqCompiler:
             case _:
                 raise NotImplementedError(f"Missing disjunction handling for {ast.data}.")
 
-    def _compr_conjunction(self, ast, L, cs, variables, cqubits) -> bool:
+    def _compr_conjunction(self,
+                           ast: Tree,
+                           L: dict[str, list[int]],
+                           cs: dict[int, Literal[0, 1]],
+                           variables: dict[str, int],
+                           cqubits: dict[int, Literal[0, 1]]) -> bool:
         match ast.data:
             case "multiple_disjs": # Lazy evaluation
                 return all(self._compr_invert(child, L, cs, variables, cqubits) for child in ast.children)
@@ -901,7 +952,12 @@ class PfoqCompiler:
             case _:
                 raise NotImplementedError(f"Missing conjunction handling for {ast.data}.")
             
-    def _compr_invert(self, ast, L, cs, variables, cqubits) -> bool:
+    def _compr_invert(self,
+                      ast: Tree,
+                      L: dict[str, list[int]],
+                      cs: dict[int, Literal[0, 1]],
+                      variables: dict[str, int],
+                      cqubits: dict[int, Literal[0, 1]]) -> bool:
         match ast.data:
             case "inversion":
                 return not self._compr_disjunction(ast.children[0], L, cs, variables, cqubits)
@@ -910,11 +966,16 @@ class PfoqCompiler:
             case _:
                 raise NotImplementedError(f"Missing inversion handling for {ast.data}.")
 
-    def _compr_boolean_expression(self, ast, L, cs, variables, cqubits) -> bool:
+    def _compr_boolean_expression(self,
+                                  ast: Tree,
+                                  L: dict[str, list[int]],
+                                  cs: dict[int, Literal[0, 1]],
+                                  variables: dict[str, int],
+                                  cqubits: dict[int, Literal[0, 1]]) -> bool:
 
         match ast.data:
             case "bool_literal":
-                return ast.children[0].value == "true"
+                return _get_data(ast.children[0]) == "true"
             case "bool_greater_than":
                 return self._compr_int_expression(ast.children[0], L, cs, variables) > self._compr_int_expression(ast.children[1], L, cs, variables)
             case "bool_greatereq_than":
@@ -932,20 +993,23 @@ class PfoqCompiler:
             case _:
                 raise NotImplementedError(f"Boolean expression {ast.data} not handled.")
 
-
-    def _compr_int_expression(self, ast, L, cs, variables) -> int:
+    def _compr_int_expression(self,
+                              ast: Tree,
+                              L: dict[str, list[int]],
+                              cs: dict[int, Literal[0, 1]],
+                              variables: dict[str, int]) -> int:
 
         match ast.data:
 
             case "int_expression_literal":
-                return int(ast.children[0].value)
+                return int(_get_data(ast.children[0]))
             
             case "binary_op":
 
-                if ast.children[1].value == "+":
+                if _get_data(ast.children[1]) == "+":
                     return int(self._compr_int_expression(ast.children[0], L, cs, variables)
                                + self._compr_int_expression(ast.children[2], L, cs, variables))
-                elif ast.children[1].value == "-":
+                elif _get_data(ast.children[1]) == "-":
                     return int(self._compr_int_expression(ast.children[0], L, cs, variables)
                                - self._compr_int_expression(ast.children[2], L, cs, variables))
                 else:
@@ -956,7 +1020,7 @@ class PfoqCompiler:
             
             case "int_expression_identifier":
 
-                variable_name = ast.children[0].value
+                variable_name = _get_data(ast.children[0])
 
                 if variable_name not in variables:
                     raise ValueError(f"Variable {variable_name} not defined.")
@@ -975,14 +1039,24 @@ class PfoqCompiler:
             case _:
                 raise NotImplementedError(
                     f"Integer expression {ast.data} not yet handled.")
-            
 
-    #PARTIAL ORDERING ON INPUTS
-    def _input_ordering(self, x):
+    def _input_ordering(self, x: tuple[dict[int, Literal[0, 1]],
+                                    Tree,
+                                    dict[str, list[int]],
+                                    dict[str, int],
+                                    dict[int, Literal[0, 1]]]):
+        """
+        Partial ordering on inputs
 
+        """
         return -max(len(x[2][reg]) for reg in self._qubit_registers)
 
-    def _optimize(self, l_CST):
+    def _optimize(self,
+                  l_CST: list[tuple[dict[int, Literal[0, 1]],
+                                    Tree,
+                                    dict[str, list[int]],
+                                    dict[str, int],
+                                    dict[int, Literal[0, 1]]]]):
 
         Ancillas = {}
         C_L, C_R = QuantumCircuit(*self._qr, self._ar), QuantumCircuit(*self._qr, self._ar)
@@ -998,7 +1072,7 @@ class PfoqCompiler:
 
                     before = True
                     for child in ast.children:
-                        if child.width == 0:
+                        if child.width == 0: # type: ignore
                             if before:
                                 C_L.compose(self._compr_statement(child, L, cs, variables, cqubits), inplace=True)
                             else:
@@ -1014,7 +1088,7 @@ class PfoqCompiler:
 
                     if guard:
 
-                        if ast.children[1].width:
+                        if ast.children[1].width: # type: ignore
                             l_CST.append((cs, ast.children[1], L, variables, cqubits))
 
                         elif self._old_optimize:
@@ -1025,7 +1099,7 @@ class PfoqCompiler:
 
                     elif len(ast.children) == 3:
 
-                        if ast.children[2].width:
+                        if ast.children[2].width: # type: ignore
                             l_CST.append((cs, ast.children[2], L, variables, cqubits))
 
                         elif self._old_optimize:
@@ -1037,7 +1111,7 @@ class PfoqCompiler:
 
                 case "qcase_statement":
 
-                    q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+                    q = self._compr_qubit_expression(ast.children[0], L, cs, variables)
             
                     if q in cqubits:
                         raise IndexError(
@@ -1052,18 +1126,18 @@ class PfoqCompiler:
                     cqubits_1[q] = 1
 
 
-                    if ast.children[1].width:
+                    if ast.children[1].width: # type: ignore
                         l_CST.append((cs_0, ast.children[1], L, variables,cqubits_0))
 
                     elif self._old_optimize:
-                        C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits, cqubits_1), front=True, inplace=True)      
+                        C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits, cqubits_1), front=True, inplace=True)
                     
                     else:
                         l_M.append((cs_0, ast.children[1], L, variables, cqubits))
 
 
 
-                    if ast.children[2].width:
+                    if ast.children[2].width: # type: ignore
                         l_CST.append((cs_1, ast.children[2], L, variables, cqubits))
 
                     elif self._old_optimize:
@@ -1075,8 +1149,8 @@ class PfoqCompiler:
 
                 case "qcase_statement_two_qubits":
 
-                    q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
-                    q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+                    q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
+                    q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
             
                     for q in [q1, q2]:
                         if q in cqubits:
@@ -1115,7 +1189,7 @@ class PfoqCompiler:
                     for i in range(4):
                         child_index = i + 2
 
-                        if ast.children[child_index].width:
+                        if ast.children[child_index].width: # type: ignore
                             l_CST.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
 
                         elif self._old_optimize:
@@ -1128,7 +1202,7 @@ class PfoqCompiler:
 
                 case "procedure_call":
 
-                    proc_identifier = ast.children[0].value
+                    proc_identifier = _get_data(ast.children[0])
 
                     qregs = []
 
@@ -1188,7 +1262,6 @@ class PfoqCompiler:
                             old_values[param] = variables[param] # save previous value if it exsists
                         
                         variables[param] = int_parameters[param]
-
 
                     reg_sizes = tuple([len(value) for key, value in sorted(new_L.items())])
 
@@ -1315,46 +1388,43 @@ class PfoqCompiler:
 
             l_CST.sort(key=lambda x: self._input_ordering(x))
 
-
-
         if self._old_optimize:
             C_L.compose(C_R, inplace=True)
             return C_L
 
+        l_M_split = []
 
-        else:
+        C_M = QuantumCircuit(*self._qr, self._ar)
 
-            l_M_split = []
+        for (cs, ast, L, variables,cqubits) in l_M:
 
-            C_M = QuantumCircuit(*self._qr, self._ar)
+            for index, value in enumerate(self._sequential_split(cs, ast, L, variables, cqubits)):
+                try:
+                    l_M_split[index].append(value)
+                except IndexError:
+                    l_M_split.append([value])
 
+        for l_t in l_M_split:
+            rec_split = self._recursive_split(l_t)
+            for index, value in enumerate(rec_split):
+                # non-recursive
+                if index == 0:
+                    for (cs, ast, L, variables, cqubits) in value:
+                        C_M.compose(self._compr_statement(ast, L, cs, variables, cqubits), inplace=True)
+                else:
+                    C_M.compose(self._optimize(value), inplace=True)
 
-            for (cs, ast, L, variables,cqubits) in l_M:
+        C_M.compose(C_R, inplace=True)
+        C_M.compose(C_L, front=True, inplace=True)
+        return C_M
 
-                for index, value in enumerate(self._sequential_split(cs, ast, L, variables, cqubits)):
-                    
-                    try:
-                        l_M_split[index].append(value)
-                    except IndexError:
-                        l_M_split.append([value])
-
-            for l_t in l_M_split:
-                rec_split = self._recursive_split(l_t)
-                for index, value in enumerate(rec_split):
-                    # non-recursive
-                    if index == 0:
-                        for (cs, ast, L, variables, cqubits) in value:
-                            C_M.compose(self._compr_statement(ast, L, cs, variables, cqubits), inplace=True)
-                    else:
-                        C_M.compose(self._optimize(value), inplace=True)
-
-            C_M.compose(C_R, inplace=True)
-            C_M.compose(C_L, front=True, inplace=True)
-            return C_M
-
-
-    # CONTEXTUAL LIST
-    def _sequential_split(self, cs, ast, L, variables, cqubits):
+    def _sequential_split(self,
+                          cs: dict[int, Literal[0, 1]],
+                          ast: Tree,
+                          L: dict[str, list[int]],
+                          variables: dict[str, int],
+                          cqubits: dict[int, Literal[0, 1]]):
+       # CONTEXTUAL LIST
 
         match ast.data:
 
@@ -1384,7 +1454,7 @@ class PfoqCompiler:
             
             case "qcase_statement":
 
-                q = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
+                q = self._compr_qubit_expression(ast.children[0], L, cs, variables)
 
                 if q in cqubits:
                     raise IndexError(
@@ -1407,8 +1477,8 @@ class PfoqCompiler:
             case "qcase_statement_two_qubits":
 
 
-                    q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables, cqubits)
-                    q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables, cqubits)
+                    q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
+                    q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
             
                     for q in [q1, q2]:
                         if q in cqubits:
@@ -1451,9 +1521,6 @@ class PfoqCompiler:
                     
                     return out
 
-                    
-
-            
             case "procedure_call":
                 return [(cs, ast, L, variables, cqubits)]
             
@@ -1461,7 +1528,6 @@ class PfoqCompiler:
                 raise ValueError(
                     f"Statement {ast.data} not treated in sequential_split")
     
-
     def _recursive_split(self, L):
         m = max([v for k, v in self._mutually_recursive_indices.items()]) + 2
         split = [[] for i in range(m)]
@@ -1476,24 +1542,24 @@ class PfoqCompiler:
                 split[0].append((cs, ast, L, variables, cqubits))
         return split
 
-    def _width_function(self, function_name):
+    def _width_function(self, function_name: str):
         return self._width_lstatement(self._functions[function_name].children[-1], function_name)
 
-    def _width_lstatement(self, ast, function_name):
+    def _width_lstatement(self, ast: Tree, function_name: str):
     
         width = 0
 
         for child in ast.children:
 
             width_child = self._width_statement(child, function_name)
-            child.width = width_child
+            child.width = width_child # type: ignore
             width += width_child
 
-        ast.width = width
+        ast.width = width # type: ignore
 
         return width
 
-    def _width_statement(self, ast, function_name):
+    def _width_statement(self, ast: Tree, function_name: str):
 
         match ast.data:
 
@@ -1521,16 +1587,17 @@ class PfoqCompiler:
                         self._width_lstatement(ast.children[5], function_name))
             
             case "procedure_call":
-                return self._mutually_recursive_indices[function_name] == self._mutually_recursive_indices[ast.children[0].value]
+                return self._mutually_recursive_indices[function_name] == self._mutually_recursive_indices[_get_data(ast.children[0])]
 
             case _:
                 raise NotImplementedError(
                     f"Statement {ast.data} not handled.")
-            
 
-
-    # POST-TREATMENT: REMOVE IDLE ANCILLAS
     def remove_idle_wires(self):
+        """
+        Post-treatment: removal of idle ancillas.
+
+        """
         assert self._compiled_circuit is not None, "No compiled circuit."
         qc_out = self._compiled_circuit.copy()
         gate_count = count_gates(qc_out)
@@ -1543,7 +1610,7 @@ class PfoqCompiler:
         return self._compiled_circuit
 
 
-def _create_control_state(cs: dict[int, int]) -> str:
+def _create_control_state(cs: dict[int, Literal[0, 1]]) -> str:
     """ Create control state from dictionary cs.
 
     Parameters
@@ -1556,6 +1623,7 @@ def _create_control_state(cs: dict[int, int]) -> str:
     >>> cs = {0:1, 2:1, 5:0}
     >>> _create_control_state(cs)
     '011'
+
     """
     return "".join(str(i) for _, i in reversed(sorted(cs.items())))
 
@@ -1589,7 +1657,9 @@ def count_gates(qc: QuantumCircuit) -> dict[Qubit, int]:
     return gate_count
 
 
-def _create_call_graph(call_graph: nx.DiGraph, f: str, g: Union[lark.Tree, lark.Token]) -> None:
+def _create_call_graph(call_graph: nx.DiGraph,
+                       f: str,
+                       g: Union[lark.Tree, lark.Token]) -> None:
 
     if isinstance(g, lark.Tree):
 
@@ -1680,11 +1750,8 @@ def _determine_qubit_difference(g: Union[lark.Tree, lark.Token]) -> int:
     return 0
 
 
-
-
-
-
-def _merging_transpositions(first_reg: list[int], second_reg: list[int]) -> list[list[list[int]]]:
+def _merging_transpositions(first_reg: list[int],
+                            second_reg: list[int]) -> list[list[list[int]]]:
     """
     Given any two registers first_reg and second_reg of equal length,
     outputs a list describing two sets of disjoint transpositions (i.e. length 2 cycles)
