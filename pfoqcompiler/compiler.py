@@ -495,10 +495,7 @@ class PfoqCompiler:
                 return QuantumCircuit(*self._qr, self._ar)
 
             case _:
-                raise NotImplementedError(
-                    f"Statement {ast.data} not handled.")
-            
-
+                raise NotImplementedError(f"Statement {ast.data} not handled.")
 
     def _compr_gate_application(self,
                                 ast: lark.Tree,
@@ -1012,7 +1009,7 @@ class PfoqCompiler:
                             if before:
                                 C_L.compose(self._compr_statement(child, L, cs, variables, cqubits), inplace=True)
                             else:
-                                C_R = self._compr_statement(child, L, cs, variables, cqubits).compose(C_R)
+                                C_R.compose(self._compr_statement(child, L, cs, variables, cqubits), front=True, inplace=True)
                         else:
                             before = False
                             l_CST.append((cs, child, L, variables, cqubits))
@@ -1028,7 +1025,7 @@ class PfoqCompiler:
                             l_CST.append((cs, ast.children[1], L, variables, cqubits))
 
                         elif self._old_optimize:
-                            C_R = self._compr_lstatement(ast.children[1], L, cs, variables, cqubits).compose(C_R)
+                            C_R.compose(self._compr_lstatement(ast.children[1], L, cs, variables, cqubits), front=True, inplace=True)
 
                         else:                            
                             l_M.append((cs, ast.children[1], L, variables, cqubits))
@@ -1039,7 +1036,7 @@ class PfoqCompiler:
                             l_CST.append((cs, ast.children[2], L, variables, cqubits))
 
                         elif self._old_optimize:
-                            C_R = self._compr_lstatement(ast.children[2], L, cs, variables, cqubits).compose(C_R)      
+                            C_R.compose(self._compr_lstatement(ast.children[2], L, cs, variables, cqubits), front=True, inplace=True)
 
                         else:  
                             l_M.append((cs, ast.children[2], L, variables, cqubits))
@@ -1066,7 +1063,7 @@ class PfoqCompiler:
                         l_CST.append((cs_0, ast.children[1], L, variables,cqubits_0))
 
                     elif self._old_optimize:
-                        C_R = self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits,cqubits_1).compose(C_R)      
+                        C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits, cqubits_1), front=True, inplace=True)      
                     
                     else:
                         l_M.append((cs_0, ast.children[1], L, variables, cqubits))
@@ -1077,7 +1074,7 @@ class PfoqCompiler:
                         l_CST.append((cs_1, ast.children[2], L, variables, cqubits))
 
                     elif self._old_optimize:
-                        C_R = self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits).compose(C_R) 
+                        C_R.compose(self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits), front=True, inplace=True) 
 
                     else:           
                         l_M.append((cs_1, ast.children[2], L, variables, cqubits))
@@ -1129,7 +1126,7 @@ class PfoqCompiler:
                             l_CST.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
 
                         elif self._old_optimize:
-                            C_R = self._compr_lstatement(ast.children[child_index], L, all_cs[i], variables, all_cqubits[i]).compose(C_R)  
+                            C_R.compose(self._compr_lstatement(ast.children[child_index], L, all_cs[i], variables, all_cqubits[i]), front=True, inplace=True)  
 
                         else:
                             l_M.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
@@ -1214,7 +1211,7 @@ class PfoqCompiler:
                         circ = QuantumCircuit(*self._qr, self._ar)
                         circ.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
 
-                        C_R = circ.compose(C_R)
+                        C_R.compose(circ, front=True, inplace=True)
 
 
                         anchored_register, merging_register = [], []
@@ -1241,7 +1238,7 @@ class PfoqCompiler:
 
                             circ.mcx(list(sorted(cs)),starting_ancilla, ctrl_state = _create_control_state(cs))
                             
-                            C_R = circ.compose(C_R)
+                            C_R.compose(circ, front=True, inplace=True)
 
                             swap_ancillas = 1
 
@@ -1262,7 +1259,7 @@ class PfoqCompiler:
                                     circ = QuantumCircuit(*self._qr, self._ar)
                                     circ.cx(source,target)
                                     
-                                    C_R = circ.compose(C_R)
+                                    C_R.compose(circ, front=True, inplace=True)
 
                                     swap_ancillas += 1
 
@@ -1286,7 +1283,7 @@ class PfoqCompiler:
                                         circ = QuantumCircuit(*self._qr, self._ar)
                                         
                                         circ.cswap(source,q1,q2)
-                                        C_R = circ.compose(C_R)
+                                        C_R.compose(circ, front=True, inplace=True)
 
                                         i += 1
 
@@ -1311,7 +1308,7 @@ class PfoqCompiler:
                             circ = QuantumCircuit(*self._qr, self._ar)
                             circ.mcx(list(sorted(cs)),ancilla, ctrl_state =_create_control_state(cs))
                             
-                            C_R = circ.compose(C_R)
+                            C_R.compose(circ, front=True, inplace=True)
 
                             l_CST.append(
                                 ({ancilla: 1}, self._functions[proc_identifier].children[-1], new_L, variables, cqubits))
@@ -1328,8 +1325,8 @@ class PfoqCompiler:
 
 
         if self._old_optimize:
-
-            return C_L.compose(C_R)
+            C_L.compose(C_R, inplace=True)
+            return C_L
 
 
         else:
@@ -1358,8 +1355,9 @@ class PfoqCompiler:
                     else:
                         C_M.compose(self._optimize(value), inplace=True)
 
-
-            return C_L.compose(C_M).compose(C_R)
+            C_M.compose(C_R, inplace=True)
+            C_M.compose(C_L, front=True, inplace=True)
+            return C_M
 
 
     # CONTEXTUAL LIST
