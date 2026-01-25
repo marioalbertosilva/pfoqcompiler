@@ -52,8 +52,9 @@ class PfoqCompiler:
     barriers: bool
         Whether some invisible barriers are added to the circuit to clarify the display, default is False.
 
-    _ast: lark.Tree
-        Internal option to resuse a previously parsed ast.
+    _no_ast: bool
+        Internal option to skip the program acquisition.
+        The user is expected to modify the internal attribute _ast themselves before any compilation.
 
     Examples
     --------
@@ -74,10 +75,10 @@ class PfoqCompiler:
                  debug_flag : bool = False,
                  verbose_flag : bool = False,
                  barriers: bool = False,
-                 _ast: Optional[lark.Tree] = None):
+                 _no_ast: bool = False):
 
-        if _ast is not None:
-            self._ast = _ast
+        if _no_ast:
+            pass
 
         elif len((tmp_set := {program, filename} - {None})) == 0:
             raise ValueError("Either program or filename argument must be provided.")

@@ -72,11 +72,11 @@ class ProgramTester():
             self.tests.addTest(TestPFOQParsing(dummy_compiler))
 
         for input_sizes, inout_list in self.inout.items():
-            compiler = PfoqCompiler(_ast=True,
-                                    nb_qubits=input_sizes,
+            compiler = PfoqCompiler(nb_qubits=input_sizes,
                                     optimize_flag=True,
                                     barriers=False,
-                                    old_optimize=False)
+                                    old_optimize=False,
+                                    _no_ast=True)
 
             if expected_error_stage == "compilation":
                 self.tests.addTest(TestPFOQCompilation(compiler, dummy_compiler, expected_error=expected_error))
