@@ -344,18 +344,11 @@ class PfoqCompiler:
             assert (_get_data(register_definition) == "def")
 
         # relative qubit addresses
-        L = {_get_data(reg): list(range(nb)) for reg, nb in zip(register_definition.children, self._nb_qubits)}
-        for i in range(len(register_definition.children)):
-
-            reg = register_definition.children[i]
-            relative_addresses = L[_get_data(reg)]
-
-            nb_qubits_before = sum(self._nb_qubits[:i])
-
-            absolute_addresses = [n + nb_qubits_before for n in relative_addresses]
-
-            L[_get_data(reg)] = absolute_addresses
-
+        L = {}
+        nb_qubits_before = 0
+        for reg, nb in zip(register_definition.children, self._nb_qubits):
+            L[_get_data(reg)] = list(range(nb_qubits_before, nb+nb_qubits_before))
+            nb_qubits_before += nb
 
         self._qubit_registers = register_definition.children
 
