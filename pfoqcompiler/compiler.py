@@ -481,8 +481,10 @@ class PfoqCompiler:
 
                 circuit.compose(self._compr_lstatement(ast.children[5], L, cs, variables, cqubits), inplace=True)
 
-                del cs[q]
-                del cqubits[q]
+                del cs[q1]
+                del cqubits[q1]
+                del cs[q2]
+                del cqubits[q2]
 
                 return circuit
 
