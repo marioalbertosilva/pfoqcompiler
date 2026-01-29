@@ -158,6 +158,8 @@ class TestPFOQCompilation(unittest.TestCase):
     def setUp(self):
         if self.dummy_compiler is not None:
             self.compiler._ast = self.dummy_compiler.ast
+            self.compiler._functions = self.dummy_compiler._functions
+
         if self.compiler.ast is None:
             self.skipTest("Unsuccessful parsing")
             return
