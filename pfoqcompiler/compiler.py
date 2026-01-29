@@ -139,7 +139,7 @@ class PfoqCompiler:
             print(f"File \'{self._filename}\' parsed successfully.")
 
     def verify(self):
-        """Statically check the following properties:
+        """Statically checks the following properties:
         - Well-foundedness: all cycles in the call graph reduce the number of accessible qubits
         - Halving (subsumes well-foundedness): all cycles in the call graph reduce by half some input qubit list
         - Bounded-width: recursive procedure calls occur on orthogonal computation branches   
@@ -195,7 +195,7 @@ class PfoqCompiler:
 
         # HALVING check
 
-        #create call subgraph without -2 edges
+        # create call subgraph without -2 edges
         minus_two_excluded_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", -42) >= -1]
 
         minus_two_excluded_subgraph = nx.DiGraph()
@@ -233,6 +233,246 @@ class PfoqCompiler:
 
         if max_width <= 1 and self._verbose_flag:
             print(f"- Bounded width: {max_width}")
+
+        # Uniformity check
+
+        is_uniform = self._check_uniformity(components)
+
+
+    def _check_uniformity(self, components):
+        """
+        Returns 'True' if program describes a weakly uniform program, 'False' otherwise.
+
+        Must satisfy the following properties:
+        1) only one qubit variable;
+        2) no use of classical inputs;
+        3) recursive procedure calls or procedure calls are similarly-reducing
+            . strong uniformity: reduction strategy defined by a single formula
+            . front reducing: fr := a | (fr)^+ | fr - [0,1,...,n]
+            . back reducing: br := a | (br)^- | br - [-1,...,-n]
+        """
+
+        # check conditions (1) and (2)
+
+        for function_name in self._functions:
+            if len(self._functions[function_name].children) > 3: # procedure name, single qubit variable, procedure statement
+                
+                if self._verbose_flag:
+                    print(f"- NOT uniform: procedure {function_name} either uses integer input or has multiple qubit variables")
+
+                return False
+            
+
+        # check condition (3)
+
+        for comp in components:
+
+            reduction_strategies = []
+
+            for function_name in comp:
+
+                procedure_statement = self._functions[function_name].children[-1]
+
+                reduction_strategies += self._reduction_strategies(procedure_statement, orthogonal_branch=False)
+
+            # check reduction strategies
+
+            # case: strong uniformity
+
+            possible_strategies = {"su": True, "fr": True, "br": True}
+
+            strategy_used = None
+
+            for strategy in reduction_strategies:
+
+                if isinstance(strategy, Tree) and strategy.data == "register_variable": continue # no reduction
+
+                else:
+                    if not strategy_used:
+
+                        strategy_used = strategy # one other possible strategy
+                    
+                    elif strategy != strategy_used:
+                        possible_strategies["su"] = False
+                        break
+                    
+                    else: continue
+
+            # check other options: front-reducing or back-reducing
+
+            def extract_integer_value(integer: Tree):
+
+                if not isinstance(integer, Tree):
+                    raise ValueError(f"{integer} is not a Tree.")
+                
+                if integer.data != "int_expression_literal": return None
+                
+                if integer.children[0].type != "SIGNED_NUMBER": return None
+
+                return int(integer.children[0].value)
+
+
+
+            def detect_strategies(strategy: Tree):
+
+                if not isinstance(strategy,Tree):
+                    raise ValueError(f"{strategy} is not a Tree.")
+                
+                match strategy.data:
+
+                    case "register_variable": pass # no reduction
+
+                    case "register_expression_parenthesed": detect_strategies(strategy.children[0])
+                    
+                    case "register_expression_parenthesed_first_half":
+                        possible_strategies["fr"] = False
+                        detect_strategies(strategy.children[0])
+                    
+                    case "register_expression_parenthesed_second_half":
+                        possible_strategies["br"] = False
+                        detect_strategies(strategy.children[0])
+
+                    case "register_expression_minus":
+
+                        removed_integers = []
+
+                        for child in strategy.children[1:]:
+
+                            removed_integers += [extract_integer_value(child)]
+                        
+                        if sorted(removed_integers) != sorted(list(range(len(removed_integers)))):
+                            possible_strategies["fr"] = False
+
+                        if sorted(removed_integers) != [i for i in range(-len(removed_integers),0,1)]:
+                            possible_strategies["br"] = False
+                                    
+
+            for strategy in reduction_strategies:
+
+                detect_strategies(strategy)
+
+
+            print(comp, possible_strategies)
+
+            if True not in possible_strategies.values():
+
+                if self._verbose_flag:
+                    print(f"- NOT uniform: calls from procedures {comp} are not similarly-reducing")
+
+                return False
+
+        return True
+
+
+
+    def _reduction_strategies(self, ast, orthogonal_branch):
+        """
+        Returns a list containing the input qubit expressions of relevant procedure calls.
+        'Relevant' meaning either recursive or orthogonal to the recursive branch.
+        """
+
+        match ast.data:
+
+            case "skip_statement" | "gate_application" | "cnot_gate" | "swap_gate" | "toffoli_gate":
+                return []
+            
+            case "lstatement":
+
+                out_reductions = []
+
+                if orthogonal_branch: # collect all
+
+                    for child in ast.children:
+
+                        out_reductions += self._reduction_strategies(child, orthogonal_branch=True)
+
+                    return out_reductions
+                
+                else:
+
+                    for child in ast.children:
+
+                        if child.width: # recursive branch
+
+                            return self._reduction_strategies(child, orthogonal_branch) 
+                
+                return []
+
+            
+            case "if_statement":
+
+                if_branch = self._reduction_strategies(ast.children[1], orthogonal_branch)
+
+                if len(ast.children) == 3: # there is also an else branch
+                        
+                    else_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)
+
+                    return if_branch + else_branch
+                
+                else:
+                    return if_branch
+            
+            case "qcase_statement":
+
+                if ast.children[1].width and ast.children[2].width:
+
+                    zero_branch = self._reduction_strategies(ast.children[1], orthogonal_branch)
+                    one_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)
+
+                elif ast.children[1].width and not ast.children[2].width:
+
+                    zero_branch = self._reduction_strategies(ast.children[1], orthogonal_branch)
+                    one_branch = self._reduction_strategies(ast.children[2], orthogonal_branch=True)
+
+                elif not ast.children[1].width and ast.children[2].width:
+
+                    zero_branch = self._reduction_strategies(ast.children[1], orthogonal_branch=True)
+                    one_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)
+
+                else:
+
+                    zero_branch = self._reduction_strategies(ast.children[1], orthogonal_branch)
+                    one_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)            
+
+
+                return zero_branch + one_branch
+            
+
+            case "qcase_statement_two_qubits":
+
+
+                zero_zero_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)
+                zero_one_branch = self._reduction_strategies(ast.children[3], orthogonal_branch)
+                one_zero_branch = self._reduction_strategies(ast.children[4], orthogonal_branch)
+                one_one_branch = self._reduction_strategies(ast.children[5], orthogonal_branch)
+
+                #print("here\n", zero_zero_branch,"\n", zero_one_branch,"\n",one_zero_branch,"\n",one_one_branch)
+
+                return zero_zero_branch + zero_one_branch + one_zero_branch + one_one_branch
+
+            case "procedure_call":
+
+                # check if recursive call
+
+                if ast.width:
+                    
+                    return [ast.children[1]]                    
+                
+                else:
+                    
+                    procedure_name = ast.children[0]
+                    procedure_statement = self._functions[procedure_name].children[-1]
+
+                    return [ast.children[1]] + self._reduction_strategies(procedure_statement, orthogonal_branch=False)
+
+            case _:
+                raise ValueError(
+                    f"Statement {ast.data} not treated in reduction_strategies")
+
+                      
+
+
+
 
     def compile(self, remove_idle_wires: bool = True):
         """Compile the program.
@@ -278,7 +518,7 @@ class PfoqCompiler:
                 raise exception
 
         if self._verbose_flag:
-            print(f"\nCompiled circuit using {self._nb_ancillas} anchoring and merging ancillas.", flush=True)
+            print(f"\nCompiled circuit using {self._nb_ancillas} ancillas.", flush=True)
             print("Compiled circuit in file \"circuits/"
                   + self._filename.split(".")[0] + "_"
                   + "_".join([str(i) for i in self._nb_qubits]) + ".pdf\"", flush=True)
@@ -1130,7 +1370,7 @@ class PfoqCompiler:
                         l_CST.append((cs_0, ast.children[1], L, variables, cqubits_0))
 
                     elif self._old_optimize:
-                        C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits, cqubits_1), front=True, inplace=True)
+                        C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits_0), front=True, inplace=True)
                     
                     else:
                         l_M.append((cs_0, ast.children[1], L, variables, cqubits))
@@ -1141,7 +1381,7 @@ class PfoqCompiler:
                         l_CST.append((cs_1, ast.children[2], L, variables, cqubits))
 
                     elif self._old_optimize:
-                        C_R.compose(self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits), front=True, inplace=True) 
+                        C_R.compose(self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits_1), front=True, inplace=True) 
 
                     else:           
                         l_M.append((cs_1, ast.children[2], L, variables, cqubits))
