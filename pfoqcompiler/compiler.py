@@ -100,7 +100,7 @@ class PfoqCompiler:
         self._nb_total_wires: int = sum(self._nb_qubits) + self._nb_ancillas
         self._qr = []
         self._ar = AncillaRegister(self._nb_ancillas, name="|0\\rangle")
-        self._functions = {} # information about procedure statements
+        self._functions: dict[str, Tree] = {} # information about procedure statements
         self._qubit_registers = []
         self._mutually_recursive_indices = {}
         self._max_used_ancilla = -1
@@ -127,6 +127,15 @@ class PfoqCompiler:
             if self._debug_flag:
                 print(self._ast)
 
+            for child in self._ast.children[:-2]:
+                assert isinstance(child, Tree)
+                if _DEBUG:
+                    assert _get_data(child) == "decl"
+
+                function_name = _get_data(child.children[0])
+            
+                self._functions[function_name] = child
+
         except Exception as exception:
             if self._debug_flag:
                 if self._filename is None:
@@ -152,15 +161,6 @@ class PfoqCompiler:
 
         if len(self._ast.children) == 0:
             raise RuntimeWarning("Empty program")
-
-        for child in self._ast.children[:-2]:
-            assert isinstance(child, Tree)
-            if _DEBUG:
-                assert _get_data(child) == "decl"
-
-            function_name = _get_data(child.children[0])
-            
-            self._functions[function_name] = child
 
         graph = self._compute_call_graph()
 
@@ -240,7 +240,6 @@ class PfoqCompiler:
 
         if self._verbose_flag and is_uniform:
             print("- Uniform")
-
 
     def _check_uniformity(self, components):
         """
@@ -363,8 +362,6 @@ class PfoqCompiler:
 
         return True
 
-
-
     def _reduction_strategies(self, ast, orthogonal_branch):
         """
         Returns a list containing the input qubit expressions of relevant procedure calls.
@@ -468,11 +465,6 @@ class PfoqCompiler:
             case _:
                 raise ValueError(
                     f"Statement {ast.data} not treated in reduction_strategies")
-
-                      
-
-
-
 
     def compile(self, remove_idle_wires: bool = True):
         """Compile the program.
@@ -990,7 +982,7 @@ class PfoqCompiler:
 
         for param in function_parameters:
             
-            if variables.get(param):
+            if variables.get(param :=_get_data(param)):
                 old_values[param] = variables[param] # save previous value if it exsists
             
             variables[param] = int_parameters[param]
@@ -1008,7 +1000,7 @@ class PfoqCompiler:
             
             if int_parameters:
                 for param in function_parameters:
-                    if not old_values.get(param):
+                    if not old_values.get(param :=_get_data(param)):
                         del variables[param]
                     else:
                         variables[param] = old_values[param]
@@ -1498,7 +1490,7 @@ class PfoqCompiler:
 
                     for param in function_parameters:
                         
-                        if variables.get(param):
+                        if variables.get(param :=_get_data(param)):
                             old_values[param] = variables[param] # save previous value if it exsists
                         
                         variables[param] = int_parameters[param]
