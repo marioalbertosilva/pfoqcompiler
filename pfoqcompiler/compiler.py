@@ -238,6 +238,9 @@ class PfoqCompiler:
 
         is_uniform = self._check_uniformity(components)
 
+        if self._verbose_flag and is_uniform:
+            print("- Uniform")
+
 
     def _check_uniformity(self, components):
         """
@@ -258,7 +261,7 @@ class PfoqCompiler:
             if len(self._functions[function_name].children) > 3: # procedure name, single qubit variable, procedure statement
                 
                 if self._verbose_flag:
-                    print(f"- NOT uniform: procedure {function_name} either uses integer input or has multiple qubit variables")
+                    print(f"- NOT uniform: procedure '{function_name}' either uses integer input or has multiple qubit variables")
 
                 return False
             
@@ -351,13 +354,10 @@ class PfoqCompiler:
 
                 detect_strategies(strategy)
 
-
-            print(comp, possible_strategies)
-
             if True not in possible_strategies.values():
 
                 if self._verbose_flag:
-                    print(f"- NOT uniform: calls from procedures {comp} are not similarly-reducing")
+                    print(f"- NOT uniform: calls from procedures '{comp}' are not similarly-reducing")
 
                 return False
 
