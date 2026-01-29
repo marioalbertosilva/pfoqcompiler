@@ -158,6 +158,8 @@ class TestPFOQCompilation(unittest.TestCase):
     def setUp(self):
         if self.dummy_compiler is not None:
             self.compiler._ast = self.dummy_compiler.ast
+            self.compiler._functions = self.dummy_compiler._functions
+
         if self.compiler.ast is None:
             self.skipTest("Unsuccessful parsing")
             return
@@ -228,6 +230,8 @@ class TestPFOQExecution(unittest.TestCase):
                 self.assertTrue((compiled := self.input_statevector.evolve(self.compiler.compiled_circuit)).equiv(self.output_statevector),
                                 f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input_statevector)}, expected {sv_to_dict(self.output_statevector)}")
         else:
+            if self.failed_setup is not None:
+                    raise self.failed_setup
             self.assertTrue((compiled := self.input_statevector.evolve(self.compiler.compiled_circuit)).equiv(self.output_statevector),
                                 f"Obtained output {sv_to_dict(compiled)} on input {sv_to_dict(self.input_statevector)}, expected {sv_to_dict(self.output_statevector)}")
 
@@ -313,20 +317,20 @@ if __name__ == '__main__':
     import os
     os.chdir(__examples_directory__)
 
-    program_tester = ProgramTester(program=open("qcase_SWAP.pfoq", "r").read(),
+    program_tester = ProgramTester(program=open("qcase_SWAP.foq", "r").read(),
                                    inout={(4,): [("0000", "0000"),   ("1000", "0001"),   ("0101", "1100"),  ("0101","1100"),  ("0010","1000")],
                                           (5,): [("00000", "00000"), ("10000", "00001"), ("00101", "01100"),("00101","01100"),("00010","10000")]})
 
-    program_tester2 = ProgramTester(program=open("qcase_CNOT.pfoq", "r").read(),
+    program_tester2 = ProgramTester(program=open("qcase_CNOT.foq", "r").read(),
                                    inout={(3,): [("000", "011"), ("001", "000"), ("010", "001"), ("011", "010"), ("100", "111"), ("101", "100"), ("110", "101"), ("111", "110")]} )
 
-    program_tester3 = ProgramTester(program=open("pairs.pfoq", "r").read(),
+    program_tester3 = ProgramTester(program=open("pairs.foq", "r").read(),
                                    inout={(5,): [("00000","10000"), ("10000","00000"),
                                                  ("00001","00001"), ("10001","10001"),
                                                  ("00010","00010"), ("10010","10010"),
                                                  ("00011","10011"), ("10011","00011")] })
     
-    program_tester4 = ProgramTester(program=open("boolean_semantics.pfoq", "r").read(),
+    program_tester4 = ProgramTester(program=open("boolean_semantics.foq", "r").read(),
                                    inout={(14,): [("00000000000000","11111111111111")] })
 
 

@@ -100,7 +100,7 @@ class PfoqCompiler:
         self._nb_total_wires: int = sum(self._nb_qubits) + self._nb_ancillas
         self._qr = []
         self._ar = AncillaRegister(self._nb_ancillas, name="|0\\rangle")
-        self._functions = {} # information about procedure statements
+        self._functions: dict[str, Tree] = {} # information about procedure statements
         self._qubit_registers = []
         self._mutually_recursive_indices = {}
         self._max_used_ancilla = -1
@@ -127,6 +127,15 @@ class PfoqCompiler:
             if self._debug_flag:
                 print(self._ast)
 
+            for child in self._ast.children[:-2]:
+                assert isinstance(child, Tree)
+                if _DEBUG:
+                    assert _get_data(child) == "decl"
+
+                function_name = _get_data(child.children[0])
+            
+                self._functions[function_name] = child
+
         except Exception as exception:
             if self._debug_flag:
                 if self._filename is None:
@@ -152,15 +161,6 @@ class PfoqCompiler:
 
         if len(self._ast.children) == 0:
             raise RuntimeWarning("Empty program")
-
-        for child in self._ast.children[:-2]:
-            assert isinstance(child, Tree)
-            if _DEBUG:
-                assert _get_data(child) == "decl"
-
-            function_name = _get_data(child.children[0])
-            
-            self._functions[function_name] = child
 
         graph = self._compute_call_graph()
 
@@ -241,7 +241,6 @@ class PfoqCompiler:
         if self._verbose_flag and is_uniform:
             print("- Uniform")
 
-
     def _check_uniformity(self, components):
         """
         Returns 'True' if program describes a weakly uniform program, 'False' otherwise.
@@ -282,88 +281,38 @@ class PfoqCompiler:
 
             # case: strong uniformity
 
-            possible_strategies = {"su": True, "fr": True, "br": True}
+            possible_strategies: dict[Literal['br', 'fr', 'su'], bool] = {'su': True, 'fr': True, 'br': True}
 
             strategy_used = None
 
             for strategy in reduction_strategies:
 
-                if isinstance(strategy, Tree) and strategy.data == "register_variable": continue # no reduction
+                if isinstance(strategy, Tree) and strategy.data == "register_variable":
+                    continue # no reduction
 
                 else:
                     if not strategy_used:
-
                         strategy_used = strategy # one other possible strategy
                     
                     elif strategy != strategy_used:
-                        possible_strategies["su"] = False
+                        possible_strategies['su'] = False
                         break
                     
-                    else: continue
+                    else:
+                        continue
 
             # check other options: front-reducing or back-reducing
 
-            def extract_integer_value(integer: Tree):
-
-                if not isinstance(integer, Tree):
-                    raise ValueError(f"{integer} is not a Tree.")
-                
-                if integer.data != "int_expression_literal": return None
-                
-                if integer.children[0].type != "SIGNED_NUMBER": return None
-
-                return int(integer.children[0].value)
-
-
-
-            def detect_strategies(strategy: Tree):
-
-                if not isinstance(strategy,Tree):
-                    raise ValueError(f"{strategy} is not a Tree.")
-                
-                match strategy.data:
-
-                    case "register_variable": pass # no reduction
-
-                    case "register_expression_parenthesed": detect_strategies(strategy.children[0])
-                    
-                    case "register_expression_parenthesed_first_half":
-                        possible_strategies["fr"] = False
-                        detect_strategies(strategy.children[0])
-                    
-                    case "register_expression_parenthesed_second_half":
-                        possible_strategies["br"] = False
-                        detect_strategies(strategy.children[0])
-
-                    case "register_expression_minus":
-
-                        removed_integers = []
-
-                        for child in strategy.children[1:]:
-
-                            removed_integers += [extract_integer_value(child)]
-                        
-                        if sorted(removed_integers) != sorted(list(range(len(removed_integers)))):
-                            possible_strategies["fr"] = False
-
-                        if sorted(removed_integers) != [i for i in range(-len(removed_integers),0,1)]:
-                            possible_strategies["br"] = False
-                                    
-
             for strategy in reduction_strategies:
-
-                detect_strategies(strategy)
+                _detect_strategies(strategy, possible_strategies)
 
             if True not in possible_strategies.values():
-
                 if self._verbose_flag:
                     print(f"- NOT uniform: calls from procedures '{comp}' are not similarly-reducing")
 
                 return False
 
         return True
-
-
 
     def _reduction_strategies(self, ast, orthogonal_branch):
         """
@@ -469,11 +418,6 @@ class PfoqCompiler:
                 raise ValueError(
                     f"Statement {ast.data} not treated in reduction_strategies")
 
-                      
-
-
-
-
     def compile(self, remove_idle_wires: bool = True):
         """Compile the program.
 
@@ -556,7 +500,6 @@ class PfoqCompiler:
             #plt.show()
 
             plt.savefig("circuits/" + self._filename.split(".")[0] + "_" + "_".join([str(i) for i in self._nb_qubits]), format="pdf")
-
 
         except Exception as exception:
             if _DEBUG:
@@ -990,7 +933,7 @@ class PfoqCompiler:
 
         for param in function_parameters:
             
-            if variables.get(param):
+            if variables.get(param :=_get_data(param)):
                 old_values[param] = variables[param] # save previous value if it exsists
             
             variables[param] = int_parameters[param]
@@ -1008,7 +951,7 @@ class PfoqCompiler:
             
             if int_parameters:
                 for param in function_parameters:
-                    if not old_values.get(param):
+                    if not old_values.get(param :=_get_data(param)):
                         del variables[param]
                     else:
                         variables[param] = old_values[param]
@@ -1498,7 +1441,7 @@ class PfoqCompiler:
 
                     for param in function_parameters:
                         
-                        if variables.get(param):
+                        if variables.get(param :=_get_data(param)):
                             old_values[param] = variables[param] # save previous value if it exsists
                         
                         variables[param] = int_parameters[param]
@@ -1988,6 +1931,56 @@ def _determine_qubit_difference(g: Union[lark.Tree, lark.Token]) -> int:
                 return min(_determine_qubit_difference(child) for child in g.children)
 
     return 0
+
+
+def _extract_integer_value(integer: Tree):
+
+    if not isinstance(integer, Tree):
+        raise ValueError(f"{integer} is not a Tree.")
+                
+    if integer.data != "int_expression_literal": 
+        return None
+    
+    assert isinstance(integer.children[0], Token)
+    if integer.children[0].type != "SIGNED_NUMBER": 
+        return None
+
+    return int(_get_data(integer.children[0]))
+
+
+def _detect_strategies(strategy: Tree,
+                       possible_strategies: dict[Literal['br', 'fr', 'su'], bool]):
+
+    if not isinstance(strategy,Tree):
+        raise ValueError(f"{strategy} is not a Tree.")
+    
+    match strategy.data:
+
+        case "register_variable":
+            pass # no reduction
+
+        case "register_expression_parenthesed":
+            _detect_strategies(strategy.children[0], possible_strategies)
+        
+        case "register_expression_parenthesed_first_half":
+            possible_strategies["fr"] = False
+            _detect_strategies(strategy.children[0], possible_strategies)
+        
+        case "register_expression_parenthesed_second_half":
+            possible_strategies["br"] = False
+            _detect_strategies(strategy.children[0], possible_strategies)
+
+        case "register_expression_minus":
+            removed_integers = []
+
+            for child in strategy.children[1:]:
+                removed_integers += [_extract_integer_value(child)]
+            
+            if sorted(removed_integers) != sorted(list(range(len(removed_integers)))):
+                possible_strategies["fr"] = False
+
+            if sorted(removed_integers) != [i for i in range(-len(removed_integers),0,1)]:
+                possible_strategies["br"] = False
 
 
 def _merging_transpositions(first_reg: list[int],
