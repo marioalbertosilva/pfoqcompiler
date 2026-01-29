@@ -261,7 +261,7 @@ class PfoqCompiler:
             if len(self._functions[function_name].children) > 3: # procedure name, single qubit variable, procedure statement
                 
                 if self._verbose_flag:
-                    print(f"- NOT uniform: procedure '{function_name}' either uses integer input or has multiple qubit variables")
+                    print(f"- NOT uniform: procedure '{function_name}' either uses integer inputs or has multiple qubit variables")
 
                 return False
             
