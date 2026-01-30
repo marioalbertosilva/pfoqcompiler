@@ -129,7 +129,7 @@ class PfoqCompiler:
 
             for child in self._ast.children[:-2]:
                 assert isinstance(child, Tree)
-                if _DEBUG:
+                if self._debug_flag:
                     assert _get_data(child) == "decl"
 
                 function_name = _get_data(child.children[0])
@@ -479,7 +479,7 @@ class PfoqCompiler:
                 plt.close()
 
             except Exception as exception:
-                if _DEBUG:
+                if self._debug_flag:
                     print("Program has been successfully compiled, but could not be displayed due to:")
                 raise exception
 
@@ -517,7 +517,7 @@ class PfoqCompiler:
             plt.show()
 
         except Exception as exception:
-            if _DEBUG:
+            if self._debug_flag:
                 print("Program has been successfully compiled, but could not be displayed due to:")
             raise exception
 
@@ -529,13 +529,13 @@ class PfoqCompiler:
         program_statement = self._ast.children[-1]
         assert isinstance(program_statement, Tree)
 
-        if _DEBUG:
+        if self._debug_flag:
             assert (_get_data(program_statement) == "lstatement")
 
         register_definition = self._ast.children[-2]
         assert isinstance(register_definition, Tree)
 
-        if _DEBUG:
+        if self._debug_flag:
             assert (_get_data(register_definition) == "def")
 
         # relative qubit addresses
@@ -547,7 +547,7 @@ class PfoqCompiler:
 
         self._qubit_registers = [_get_data(reg) for reg in register_definition.children]
 
-        if _DEBUG:
+        if self._debug_flag:
             assert (len(self._nb_qubits) == len(self._qubit_registers) )
 
         self._qr = [QuantumRegister(nb, name=f"{reg}") for reg, nb in zip(register_definition.children, self._nb_qubits)]
@@ -953,7 +953,7 @@ class PfoqCompiler:
             
             variables[param] = int_parameters[param]
 
-        if _DEBUG:
+        if self._debug_flag:
             print(f"in compr: calling {proc_identifier} on input {new_L}")
 
         if new_L:
@@ -1552,7 +1552,7 @@ class PfoqCompiler:
                                         i += 1
 
                     else:
-                        if _DEBUG:
+                        if self._debug_flag:
                             print(f"in optimize: calling {proc_identifier} on input {new_L}")
 
                         if len(cs) > 0:
@@ -2167,7 +2167,6 @@ if __name__ == "__main__":
                                 old_optimize=args.old_optimize,
                                 debug_flag = args.debug,
                                 verbose_flag = args.verbose)
-        
 
         compiler.parse()
 
