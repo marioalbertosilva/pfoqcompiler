@@ -60,7 +60,6 @@ with open("resource_estimation/sum_three_compileplus.dat", "w") as f:
             compiler = PfoqCompiler(filename="examples/sum_three.pfoq",
                                     nb_qubits=[i],
                                     nb_ancillas = 3*i,
-                                    old_optimize = False,
                                     optimize_flag=True,
                                     barriers=False)
             compiler.parse()    

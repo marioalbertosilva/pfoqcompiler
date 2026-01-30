@@ -47,9 +47,6 @@ class PfoqCompiler:
     optimize_flag: bool
         Whether a compilation technique optimizing the circuit is run, default is True.
 
-    old_optimize: bool
-        Toggle either the old optimization procedure or the new one, default is False.
-
     barriers: bool
         Whether some invisible barriers are added to the circuit to clarify the display, default is False.
 
@@ -72,7 +69,6 @@ class PfoqCompiler:
                  nb_qubits: Sequence[int] = [8],
                  nb_ancillas: int = 1,
                  optimize_flag: bool = True,
-                 old_optimize: bool = False,
                  debug_flag : bool = False,
                  verbose_flag : bool = False,
                  barriers: bool = False,
@@ -109,7 +105,6 @@ class PfoqCompiler:
         self._optimize_flag = optimize_flag
         self._debug_flag = debug_flag or _DEBUG
         self._verbose_flag = verbose_flag
-        self._old_optimize = old_optimize
         self._enforce_order = barriers
 
     @property
@@ -1261,13 +1256,9 @@ class PfoqCompiler:
         l_M = []
 
         while l_CST:
-
             cs, ast, L, variables, cqubits = l_CST.pop(0)
-
             match ast.data:
-
                 case "lstatement":
-
                     before = True
                     for child in ast.children:
                         if child.width == 0: # type: ignore
@@ -1278,37 +1269,22 @@ class PfoqCompiler:
                         else:
                             before = False
                             l_CST.append((cs, child, L, variables, cqubits))
-                
 
                 case "if_statement":
-
                     guard = self._compr_disjunction(ast.children[0], L, cs, variables, cqubits)
-
                     if guard:
-
                         if ast.children[1].width: # type: ignore
                             l_CST.append((cs, ast.children[1], L, variables, cqubits))
-
-                        elif self._old_optimize:
-                            C_R.compose(self._compr_lstatement(ast.children[1], L, cs, variables, cqubits), front=True, inplace=True)
-
                         else:                            
                             l_M.append((cs, ast.children[1], L, variables, cqubits))
 
                     elif len(ast.children) == 3:
-
                         if ast.children[2].width: # type: ignore
                             l_CST.append((cs, ast.children[2], L, variables, cqubits))
-
-                        elif self._old_optimize:
-                            C_R.compose(self._compr_lstatement(ast.children[2], L, cs, variables, cqubits), front=True, inplace=True)
-
                         else:  
                             l_M.append((cs, ast.children[2], L, variables, cqubits))
 
-
                 case "qcase_statement":
-
                     q = self._compr_qubit_expression(ast.children[0], L, cs, variables)
             
                     if q in cqubits:
@@ -1323,30 +1299,19 @@ class PfoqCompiler:
                     cqubits_0[q] = 0
                     cqubits_1[q] = 1
 
-
                     if ast.children[1].width: # type: ignore
                         l_CST.append((cs_0, ast.children[1], L, variables, cqubits_0))
-
-                    elif self._old_optimize:
-                        C_R.compose(self._compr_lstatement(ast.children[1], L, cs_0, variables, cqubits_0), front=True, inplace=True)
                     
                     else:
                         l_M.append((cs_0, ast.children[1], L, variables, cqubits))
 
-
-
                     if ast.children[2].width: # type: ignore
                         l_CST.append((cs_1, ast.children[2], L, variables, cqubits))
-
-                    elif self._old_optimize:
-                        C_R.compose(self._compr_lstatement(ast.children[2], L, cs_1, variables, cqubits_1), front=True, inplace=True) 
 
                     else:           
                         l_M.append((cs_1, ast.children[2], L, variables, cqubits))
 
-
                 case "qcase_statement_two_qubits":
-
                     q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
                     q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
             
@@ -1354,7 +1319,6 @@ class PfoqCompiler:
                         if q in cqubits:
                             raise IndexError(
                                 f"Already controlling on the state of qubit {q}.")
-                        
 
                     cs_00, cs_01, cs_10, cs_11 = cs.copy(), cs.copy(), cs.copy(), cs.copy()
                     cs_00[q1] = 0
@@ -1368,8 +1332,6 @@ class PfoqCompiler:
 
                     all_cs = [cs_00, cs_01, cs_10, cs_11]
 
-
-
                     cqubits_00, cqubits_01, cqubits_10, cqubits_11 = cqubits.copy(), cqubits.copy(), cqubits.copy(), cqubits.copy()
                     cqubits_00[q1] = 0
                     cqubits_00[q2] = 0
@@ -1380,9 +1342,7 @@ class PfoqCompiler:
                     cqubits_11[q1] = 1
                     cqubits_11[q2] = 1
 
-
                     all_cqubits = [cqubits_00, cqubits_01, cqubits_10, cqubits_11]
-
 
                     for i in range(4):
                         child_index = i + 2
@@ -1390,41 +1350,27 @@ class PfoqCompiler:
                         if ast.children[child_index].width: # type: ignore
                             l_CST.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
 
-                        elif self._old_optimize:
-                            C_R.compose(self._compr_lstatement(ast.children[child_index], L, all_cs[i], variables, all_cqubits[i]), front=True, inplace=True)  
-
                         else:
                             l_M.append((all_cs[i], ast.children[child_index], L, variables, all_cqubits[i]))
 
-
-
                 case "procedure_call":
-
                     proc_identifier = _get_data(ast.children[0])
-
                     qregs = []
-
                     int_variables = []
 
                     for child in self._functions[proc_identifier].children:
-                       
                         if isinstance(child, lark.Token):
-                        
                             match child.type:
-
                                 case "REGISTER_VARIABLE":
                                     qregs += [child.value]
 
                                 case "INT_IDENTIFIER":
                                     int_variables += [child.value]
 
-
                     if proc_identifier not in self._functions:
                         raise NameError(
                             f"Called function {proc_identifier} was not declared.")
 
-
-                    
                     new_L = L.copy()
 
                     for index in range(-len(qregs),0):
@@ -1433,11 +1379,7 @@ class PfoqCompiler:
                     if [] in new_L.values():
                         continue
 
-                    
-
                     function = self._functions[proc_identifier]
-                    
-
 
                     num_int_variables = len(int_variables)
 
@@ -1455,10 +1397,9 @@ class PfoqCompiler:
                     old_values = {}
 
                     for param in function_parameters:
-                        
                         if variables.get(param :=_get_data(param)):
                             old_values[param] = variables[param] # save previous value if it exsists
-                        
+
                         variables[param] = int_parameters[param]
 
                     reg_sizes = tuple([len(value) for key, value in sorted(new_L.items())])
@@ -1466,9 +1407,7 @@ class PfoqCompiler:
                     int_values = tuple([value for key,value in sorted(variables.items())])
 
                     if (proc_identifier,reg_sizes, int_values) in Ancillas:
-                        # merging
-
-                        ancilla, anchored_L = Ancillas[(proc_identifier, reg_sizes, int_values)]
+                        ancilla, anchored_L = Ancillas[(proc_identifier, reg_sizes, int_values)] # merging
 
                         C_L.mcx(list(sorted(cs)),ancilla, ctrl_state = _create_control_state(cs))
 
@@ -1477,16 +1416,13 @@ class PfoqCompiler:
 
                         C_R.compose(circ, front=True, inplace=True)
 
-
                         anchored_register, merging_register = [], []
 
                         for reg in sorted(qregs):
                             anchored_register += anchored_L[reg]
                             merging_register += new_L[reg]
 
-
                         if merging_register!= anchored_register:
-                            
                             transposition_list = _merging_transpositions(merging_register, anchored_register)
                             largest_size = max([len(i) for i in transposition_list])
 
@@ -1509,7 +1445,6 @@ class PfoqCompiler:
                             # log-depth ancilla preparation
                             while swap_ancillas < largest_size:
                                 for sa in range(swap_ancillas):
-
                                     source = starting_ancilla + sa  # actual address
 
                                     self._max_used_ancilla += 1
@@ -1533,7 +1468,6 @@ class PfoqCompiler:
                                 else:
                                     continue
                                 break
-
 
                             for step in transposition_list:
                                 if step:
@@ -1586,16 +1520,11 @@ class PfoqCompiler:
 
             l_CST.sort(key=lambda x: self._input_ordering(x))
 
-        if self._old_optimize:
-            C_L.compose(C_R, inplace=True)
-            return C_L
-
         l_M_split = []
 
         C_M = QuantumCircuit(*self._qr, self._ar)
 
         for (cs, ast, L, variables,cqubits) in l_M:
-
             for index, value in enumerate(self._sequential_split(cs, ast, L, variables, cqubits)):
                 try:
                     l_M_split[index].append(value)
@@ -1614,6 +1543,7 @@ class PfoqCompiler:
 
         C_M.compose(C_R, inplace=True)
         C_M.compose(C_L, front=True, inplace=True)
+
         return C_M
 
     def _sequential_split(self,
@@ -1625,7 +1555,6 @@ class PfoqCompiler:
        # CONTEXTUAL LIST
 
         match ast.data:
-
             case "lstatement":
                 seq = []
                 for child in ast.children:
@@ -1641,7 +1570,6 @@ class PfoqCompiler:
                 return [(cs, ast, L, variables, cqubits)]
             
             case "if_statement":
-
                 if self._compr_disjunction(ast.children[0], L, cs, variables, cqubits):
                     return self._sequential_split(cs, ast.children[1], L, variables, cqubits)
                 
@@ -1651,7 +1579,6 @@ class PfoqCompiler:
                 return []
             
             case "qcase_statement":
-
                 q = self._compr_qubit_expression(ast.children[0], L, cs, variables)
 
                 if q in cqubits:
@@ -1673,51 +1600,44 @@ class PfoqCompiler:
                                             cqubits0) + self._sequential_split(cs1, ast.children[2], L, variables, cqubits1)
             
             case "qcase_statement_two_qubits":
-
-
-                    q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
-                    q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
+                q1 = self._compr_qubit_expression(ast.children[0], L, cs, variables)
+                q2 = self._compr_qubit_expression(ast.children[1], L, cs, variables)
             
-                    for q in [q1, q2]:
-                        if q in cqubits:
-                            raise IndexError(
-                                f"Already controlling on the state of qubit {q}.")
-                        
+                for q in [q1, q2]:
+                    if q in cqubits:
+                        raise IndexError(
+                            f"Already controlling on the state of qubit {q}.")
 
-                    cs_00, cs_01, cs_10, cs_11 = cs.copy(), cs.copy(), cs.copy(), cs.copy()
-                    cs_00[q1] = 0
-                    cs_00[q2] = 0
-                    cs_01[q1] = 0
-                    cs_01[q2] = 1
-                    cs_10[q1] = 1
-                    cs_10[q2] = 0
-                    cs_11[q1] = 1
-                    cs_11[q2] = 1
+                cs_00, cs_01, cs_10, cs_11 = cs.copy(), cs.copy(), cs.copy(), cs.copy()
+                cs_00[q1] = 0
+                cs_00[q2] = 0
+                cs_01[q1] = 0
+                cs_01[q2] = 1
+                cs_10[q1] = 1
+                cs_10[q2] = 0
+                cs_11[q1] = 1
+                cs_11[q2] = 1
 
-                    all_cs = [cs_00, cs_01, cs_10, cs_11]
+                all_cs = [cs_00, cs_01, cs_10, cs_11]
 
+                cqubits_00, cqubits_01, cqubits_10, cqubits_11 = cqubits.copy(), cqubits.copy(), cqubits.copy(), cqubits.copy()
+                cqubits_00[q1] = 0
+                cqubits_00[q2] = 0
+                cqubits_01[q1] = 0
+                cqubits_01[q2] = 1
+                cqubits_10[q1] = 1
+                cqubits_10[q2] = 0
+                cqubits_11[q1] = 1
+                cqubits_11[q2] = 1
 
+                all_cqubits = [cqubits_00, cqubits_01, cqubits_10, cqubits_11]
 
-                    cqubits_00, cqubits_01, cqubits_10, cqubits_11 = cqubits.copy(), cqubits.copy(), cqubits.copy(), cqubits.copy()
-                    cqubits_00[q1] = 0
-                    cqubits_00[q2] = 0
-                    cqubits_01[q1] = 0
-                    cqubits_01[q2] = 1
-                    cqubits_10[q1] = 1
-                    cqubits_10[q2] = 0
-                    cqubits_11[q1] = 1
-                    cqubits_11[q2] = 1
+                out = []
 
-
-                    all_cqubits = [cqubits_00, cqubits_01, cqubits_10, cqubits_11]
-
-                    out = []
-
-                    for i in range(4):
-
-                        out += self._sequential_split(all_cs[i], ast.children[2+i], L, variables, all_cqubits[i]) 
-                    
-                    return out
+                for i in range(4):
+                    out += self._sequential_split(all_cs[i], ast.children[2+i], L, variables, all_cqubits[i]) 
+                
+                return out
 
             case "procedure_call":
                 return [(cs, ast, L, variables, cqubits)]
@@ -2137,11 +2057,6 @@ if __name__ == "__main__":
                         'sequential order is imposed for displaying purposes.',
                         default=True)
 
-    parser.add_argument('--old-optimize', action='store_true',
-                        help='Determines whether or not to use compile or compileplus.' \
-                        'Defaults to \'False\', where compileplus is used.',
-                        default=False)
-
     parser.add_argument('--debug', action=argparse.BooleanOptionalAction,
                         help='Output debugging information.' \
                         'Defaults to \'False\'.',
@@ -2164,7 +2079,6 @@ if __name__ == "__main__":
                                 nb_qubits=args.inputsizes,
                                 optimize_flag=args.optimize,
                                 barriers=args.barriers,
-                                old_optimize=args.old_optimize,
                                 debug_flag = args.debug,
                                 verbose_flag = args.verbose)
 

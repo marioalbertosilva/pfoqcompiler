@@ -12,8 +12,7 @@ from pfoqcompiler.compiler import PfoqCompiler
 compiler = PfoqCompiler(filename="examples/search.pfoq",
                         nb_qubits=[8,1],
                         optimize_flag=True,
-                        barriers=False,
-                        old_optimize=False)
+                        barriers=False)
 compiler.parse()
 compiler.compile()
 circ = compiler.compiled_circuit
