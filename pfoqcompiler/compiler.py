@@ -107,7 +107,7 @@ class PfoqCompiler:
         self._ast = None
         self._compiled_circuit = None
         self._optimize_flag = optimize_flag
-        self._debug_flag = debug_flag
+        self._debug_flag = debug_flag or _DEBUG
         self._verbose_flag = verbose_flag
         self._old_optimize = old_optimize
         self._enforce_order = barriers
@@ -324,78 +324,58 @@ class PfoqCompiler:
 
             case "skip_statement" | "gate_application" | "cnot_gate" | "swap_gate" | "toffoli_gate":
                 return []
-            
+
             case "lstatement":
 
                 out_reductions = []
 
                 if orthogonal_branch: # collect all
-
                     for child in ast.children:
-
                         out_reductions += self._reduction_strategies(child, orthogonal_branch=True)
 
                     return out_reductions
-                
+
                 else:
-
                     for child in ast.children:
-
                         if child.width: # recursive branch
-
                             return self._reduction_strategies(child, orthogonal_branch) 
-                
+
                 return []
 
-            
             case "if_statement":
-
                 if_branch = self._reduction_strategies(ast.children[1], orthogonal_branch)
 
                 if len(ast.children) == 3: # there is also an else branch
-                        
                     else_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)
-
                     return if_branch + else_branch
                 
                 else:
                     return if_branch
             
             case "qcase_statement":
-
                 if ast.children[1].width and ast.children[2].width:
-
                     zero_branch = self._reduction_strategies(ast.children[1], orthogonal_branch)
                     one_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)
 
                 elif ast.children[1].width and not ast.children[2].width:
-
                     zero_branch = self._reduction_strategies(ast.children[1], orthogonal_branch)
                     one_branch = self._reduction_strategies(ast.children[2], orthogonal_branch=True)
 
                 elif not ast.children[1].width and ast.children[2].width:
-
                     zero_branch = self._reduction_strategies(ast.children[1], orthogonal_branch=True)
                     one_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)
 
                 else:
-
                     zero_branch = self._reduction_strategies(ast.children[1], orthogonal_branch)
                     one_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)            
 
-
                 return zero_branch + one_branch
-            
 
             case "qcase_statement_two_qubits":
-
-
                 zero_zero_branch = self._reduction_strategies(ast.children[2], orthogonal_branch)
                 zero_one_branch = self._reduction_strategies(ast.children[3], orthogonal_branch)
                 one_zero_branch = self._reduction_strategies(ast.children[4], orthogonal_branch)
                 one_one_branch = self._reduction_strategies(ast.children[5], orthogonal_branch)
-
-                #print("here\n", zero_zero_branch,"\n", zero_one_branch,"\n",one_zero_branch,"\n",one_one_branch)
 
                 return zero_zero_branch + zero_one_branch + one_zero_branch + one_one_branch
 
@@ -408,7 +388,6 @@ class PfoqCompiler:
                     return [ast.children[1]]                    
                 
                 else:
-                    
                     procedure_name = ast.children[0]
                     procedure_statement = self._functions[procedure_name].children[-1]
 
@@ -463,28 +442,65 @@ class PfoqCompiler:
 
         if self._verbose_flag:
             print(f"\nCompiled circuit using {self._nb_ancillas} ancillas.", flush=True)
-            print("Compiled circuit in file \"circuits/"
-                  + self._filename.split(".")[0] + "_"
-                  + "_".join([str(i) for i in self._nb_qubits]) + ".pdf\"", flush=True)
 
-    def save(self, filename: str) -> None:
+    def save(self, filename: str, qasm: bool = False) -> None:
         """
         Saves the compiled circuit in OpenQASM 3 format.
+
+        Parameters
+        ----------
+        filename: str
+            File to which the circuit should be stored.
+        qasm: bool
+            Whether the display is a OPENQASM circuit in the terminal, or the default matplotlib.
+
         """
 
         if self._compiled_circuit is None:
             raise NotCompiledError("The circuit hasn't been successfully compiled.")
         
-        with open(f"{filename}.qasm", "w") as f:
-            qiskit.qasm3.dump(self._compiled_circuit, f)
+        if qasm:
+            with open(f"{filename}.qasm", "w") as f:
+                qiskit.qasm3.dump(self._compiled_circuit, f)
 
-    def display(self) -> None:
+        else:
+            try:
+                if self._enforce_order:
+                    N = sum(self._nb_qubits) + self._nb_ancillas
+
+                    for i in range(len(self._compiled_circuit.data)):
+                        self._compiled_circuit.data.insert(
+                                2*i+1, CircuitInstruction(Barrier(N), range(N)))
+                
+                circuit_drawer(self._compiled_circuit, output="mpl", style="bw",
+                                fold=-1, plot_barriers=False)
+            
+                plt.savefig(filename, format="pdf")
+                plt.close()
+
+            except Exception as exception:
+                if _DEBUG:
+                    print("Program has been successfully compiled, but could not be displayed due to:")
+                raise exception
+
+    def display(self, qasm: bool = False) -> None:
         """
         Generates a circuit representation in matplotlib.
+
+        Parameters
+        ----------
+        qasm: bool
+            Whether the display is a OpenQASM circuit in the terminal, or the default matplotlib.
+
         """
 
         if self._compiled_circuit is None:
             raise NotCompiledError("The circuit hasn't been successfully compiled.")
+
+        if qasm:
+            import sys
+            qiskit.qasm3.dump(self._compiled_circuit, sys.stdout)
+            return
 
         try:
             if self._enforce_order:
@@ -497,9 +513,8 @@ class PfoqCompiler:
                 
             circuit_drawer(self._compiled_circuit, output="mpl", style="bw",
                             fold=-1, plot_barriers=False)
-            #plt.show()
-
-            plt.savefig("circuits/" + self._filename.split(".")[0] + "_" + "_".join([str(i) for i in self._nb_qubits]), format="pdf")
+            
+            plt.show()
 
         except Exception as exception:
             if _DEBUG:
@@ -2092,35 +2107,46 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--inputsizes', type=int, nargs="+",
                         help='Qubit input sizes.')
     
-    parser.add_argument('-d', '--display', type=bool,
-                        help='Indicates if the circuit should be displayed with Matplotlib.',
-                        default=True)
-    
-    parser.add_argument('-s', '--save', type=bool,
-                        help='Indicates if the circuit should be saved to a file.',
+    parser.add_argument('-d', '--display', action=argparse.BooleanOptionalAction,
+                        help='Indicates if the circuit should be displayed.',
                         default=False)
     
+    parser.add_argument('-q', '--qasm', action=argparse.BooleanOptionalAction,
+                        help='Indicates if the OpenQASM format should be used.',
+                        default=False)
+    
+    parser.add_argument('-s', '--save', type=bool,
+                        help='Indicates if the circuit should be saved.',
+                        default=True)
+    
+    parser.add_argument('-o', '--output', type=str,
+                        help='Indicates the filename of the saved circuit.')
+    
+    parser.add_argument('--output-dir', type=str,
+                        help='Indicates the directory in which the circuit is saved.',
+                        default=".")
+
     parser.add_argument('--optimize', action=argparse.BooleanOptionalAction,
                         help='Indicates if procedure calls should be merged. Defaults to \'True\'.',
                         default=True)
-    
+
     parser.add_argument('--barriers', action=argparse.BooleanOptionalAction,
                         help='Determines whether or not the circuit is displayed ' \
                         'sequentially according to the pfoq-compiler, or if parallel ' \
                         'gates are performed concurrently. Defaults to \'True\', where ' \
                         'sequential order is imposed for displaying purposes.',
                         default=True)
-    
+
     parser.add_argument('--old-optimize', action='store_true',
                         help='Determines whether or not to use compile or compileplus.' \
                         'Defaults to \'False\', where compileplus is used.',
                         default=False)
-    
+
     parser.add_argument('--debug', action=argparse.BooleanOptionalAction,
                         help='Output debugging information.' \
                         'Defaults to \'False\'.',
                         default=False)
-    
+
     parser.add_argument('--verbose', action=argparse.BooleanOptionalAction,
                         help='Output more informtion about the compilation,' \
                         'including statically verified properties.' \
@@ -2129,9 +2155,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    
-
-    FILENAMES = ["examples/cat_state_parallel.pfoq"]
+    FILENAMES = []
     filenames = FILENAMES if args.filename is None else [filename for filename in args.filename]
 
     for filename in filenames:
@@ -2152,7 +2176,19 @@ if __name__ == "__main__":
         compiler.compile()
 
         if args.save:
-            compiler.save()
+            if args.output is None:
+                import os
+                basename = os.path.basename(filename)
+                args.output = ".".join(basename.split(".")[:-1]) if '.' in basename else basename
+
+                if args.qasm:
+                    extension = ".qasm"
+                else:
+                    extension = ".pdf"
+            else:
+                extension = ""
+
+            compiler.save(args.output_dir + "/" + args.output + extension, args.qasm)
 
         if args.display:
-            compiler.display()
+            compiler.display(args.qasm)
