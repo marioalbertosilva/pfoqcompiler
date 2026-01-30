@@ -98,7 +98,7 @@ class PfoqCompiler:
         self._ar = AncillaRegister(self._nb_ancillas, name="|0\\rangle")
         self._functions: dict[str, Tree] = {} # information about procedure statements
         self._qubit_registers = []
-        self._mutually_recursive_indices = {}
+        self._mutually_recursive_indices: dict[str, int] = {}
         self._max_used_ancilla = -1
         self._ast = None
         self._compiled_circuit = None
@@ -106,6 +106,11 @@ class PfoqCompiler:
         self._debug_flag = debug_flag or _DEBUG
         self._verbose_flag = verbose_flag
         self._enforce_order = barriers
+        self._is_well_founded: Optional[bool] = None
+        self._halving: Optional[bool] = None
+        self._width: Optional[int] = None
+        self._is_uniform: Optional[bool] = None
+
 
     @property
     def compiled_circuit(self):
@@ -114,6 +119,34 @@ class PfoqCompiler:
     @property
     def ast(self):
         return self._ast
+    
+    @property
+    def is_well_founded(self) -> bool:
+        if self._is_well_founded is None:
+            self._is_well_founded = self.check_well_foundness()
+
+        return self._is_well_founded
+    
+    @property
+    def can_be_halved(self) -> bool:
+        if self._halving is None:
+            self._halving = self.check_halving()
+
+        return self._halving
+    
+    @property
+    def width(self) -> int:
+        if self._width is None:
+            self._width = self.compute_width()
+
+        return self._width
+    
+    @property
+    def is_uniform(self) -> bool:
+        if self._is_uniform is None:
+            self._is_uniform = self.check_uniformity()
+
+        return self._is_uniform
 
     def parse(self):
         try:
@@ -142,6 +175,96 @@ class PfoqCompiler:
         if self._verbose_flag:
             print(f"File \'{self._filename}\' parsed successfully.")
 
+    def check_well_foundness(self,
+                            _graph: Optional[nx.DiGraph] = None,
+                            enforce: bool = False) -> bool:
+        """
+        Checks the well-foundness of the program
+        
+        Parameters
+        ----------
+        _graph: nx.DiGraph
+            If the call graph was already computed, it can be reduced.
+        enforce: bool
+            Whether the function should raise an error if the program is not well-founded.
+
+        """
+        if _graph is None:
+            _graph = self._compute_call_graph()
+
+        zero_weight_edges = [(u, v) for u, v, d in _graph.edges(data=True) if d.get("weight", None) == 0]
+
+        zero_weight_subgraph = nx.DiGraph()
+        zero_weight_subgraph.add_nodes_from(_graph.nodes())
+        zero_weight_subgraph.add_edges_from(zero_weight_edges)
+
+        self._is_well_founded = True
+
+        try:
+            zero_cycle = nx.find_cycle(zero_weight_subgraph)
+            self._is_well_founded = False
+            if enforce:
+                raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:",
+                                   " -> ".join(zero_cycle))
+
+        except nx.NetworkXNoCycle:
+            pass
+
+        return self._is_well_founded
+        
+    def check_halving(self,
+                      _graph: Optional[nx.DiGraph] = None):
+        """
+        Checks whether the program can be halved.
+        
+        Parameters
+        ----------
+        _graph: nx.DiGraph
+            If the call graph was already computed, it can be reduced.
+
+        """
+        if _graph is None:
+            _graph = self._compute_call_graph()
+
+        # create call subgraph without -2 edges
+        minus_two_excluded_edges = [(u, v) for u, v, d in _graph.edges(data=True) if d.get("weight", -42) >= -1]
+
+        minus_two_excluded_subgraph = nx.DiGraph()
+        minus_two_excluded_subgraph.add_nodes_from(_graph.nodes())
+        minus_two_excluded_subgraph.add_edges_from(minus_two_excluded_edges)
+
+        self._halving = True
+
+        try:
+            minus_two_avoiding_cycle = list(nx.find_cycle(minus_two_excluded_subgraph)[0])
+            self._halving = False
+            if self._verbose_flag:
+                print("- NOT halving. An example call cycle that does not reduce qubits by half:",
+                      " -> ".join(minus_two_avoiding_cycle))
+
+        except nx.NetworkXNoCycle:
+            pass
+
+        return self._halving
+
+    def compute_width(self):
+        """
+        Computes the width of the program.
+
+        """
+        self._width = 0
+
+        for function in self._functions:
+            width = self._width_function(function)
+            self._width = max(width, self._width)
+
+            if self._optimize_flag and width > 1:
+                if self._verbose_flag:
+                    print(f"Procedure {function} has width {width}. Turning off optimization.")
+                self._optimize_flag = False
+
+        return self._width
+
     def verify(self):
         """Statically checks the following properties:
         - Well-foundedness: all cycles in the call graph reduce the number of accessible qubits
@@ -162,81 +285,34 @@ class PfoqCompiler:
         if self._debug_flag:
             nx.draw(graph)
 
-        components = list(nx.strongly_connected_components(graph))
+        components: list[set[str]] = list(nx.strongly_connected_components(graph))
+ 
         for index, value in enumerate(components):
             for name in value:
                 self._mutually_recursive_indices[name] = index
 
-
         # Well foundedness check
-
-        zero_weight_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", None) == 0]
-
-        zero_weight_subgraph = nx.DiGraph()
-        zero_weight_subgraph.add_nodes_from(graph.nodes())
-        zero_weight_subgraph.add_edges_from(zero_weight_edges)
-
-        well_founded = True
-
-        try:
-            zero_cycle = nx.find_cycle(zero_weight_subgraph)
-            well_founded = False
-            raise WellFoundedError("Program is not well-founded. The following call cycle does not remove any qubits:",
-                                   " -> ".join(zero_cycle))
-
-        except nx.NetworkXNoCycle:
+        if self.check_well_foundness(graph, enforce=True):
             if self._verbose_flag:
                 print("- Well-founded")
 
         # HALVING check
-
-        # create call subgraph without -2 edges
-        minus_two_excluded_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("weight", -42) >= -1]
-
-        minus_two_excluded_subgraph = nx.DiGraph()
-        minus_two_excluded_subgraph.add_nodes_from(graph.nodes())
-        minus_two_excluded_subgraph.add_edges_from(minus_two_excluded_edges)
-
-
-        halving = True
-
-        try:
-            minus_two_avoiding_cycle = list(nx.find_cycle(minus_two_excluded_subgraph)[0])
-            halving = False
-            if self._verbose_flag:
-                print("- NOT halving. An example call cycle that does not reduce qubits by half:",
-                      " -> ".join(minus_two_avoiding_cycle))
-
-        except nx.NetworkXNoCycle:
+        if self.check_halving(graph):
             if self._verbose_flag:
                 print("- Halving")
 
         # WIDTH <= 1 check
-        # this step stores a width parameter in the tree that controls the flow in optimize
-        max_width = 0
-
-        for function in self._functions:
-            width = self._width_function(function)
-            max_width = max(width,max_width)
-                
-
-            if self._optimize_flag and width > 1:
-                if self._verbose_flag:
-                    print(f"Procedure {function} has width {width}. Turning off optimization.")
-                self._optimize_flag = False
-
-
+        max_width = self.compute_width()
         if max_width <= 1 and self._verbose_flag:
             print(f"- Bounded width: {max_width}")
 
         # Uniformity check
+        self.check_uniformity(components)
 
-        is_uniform = self._check_uniformity(components)
-
-        if self._verbose_flag and is_uniform:
+        if self._verbose_flag and self._is_uniform:
             print("- Uniform")
 
-    def _check_uniformity(self, components):
+    def check_uniformity(self, _components: Optional[list[set[str]]] = None):
         """
         Returns 'True' if program describes a weakly uniform program, 'False' otherwise.
 
@@ -248,9 +324,15 @@ class PfoqCompiler:
             . front reducing: fr := a | (fr)^+ | fr - [0,1,...,n]
             . back reducing: br := a | (br)^- | br - [-1,...,-n]
         """
+        if _components is None:
+            graph = self._compute_call_graph()
+
+            if self._debug_flag:
+                nx.draw(graph)
+
+            _components = list(nx.strongly_connected_components(graph))
 
         # check conditions (1) and (2)
-
         for function_name in self._functions:
             if len(self._functions[function_name].children) > 3: # procedure name, single qubit variable, procedure statement
                 
@@ -258,30 +340,20 @@ class PfoqCompiler:
                     print(f"- NOT uniform: procedure '{function_name}' either uses integer input or has multiple qubit variables")
 
                 return False
-            
 
         # check condition (3)
-
-        for comp in components:
-
+        for comp in _components:
             reduction_strategies = []
-
             for function_name in comp:
-
                 procedure_statement = self._functions[function_name].children[-1]
-
                 reduction_strategies += self._reduction_strategies(procedure_statement, orthogonal_branch=False)
 
             # check reduction strategies
-
             # case: strong uniformity
-
             possible_strategies: dict[Literal['br', 'fr', 'su'], bool] = {'su': True, 'fr': True, 'br': True}
-
             strategy_used = None
 
             for strategy in reduction_strategies:
-
                 if isinstance(strategy, Tree) and strategy.data == "register_variable":
                     continue # no reduction
 
@@ -297,7 +369,6 @@ class PfoqCompiler:
                         continue
 
             # check other options: front-reducing or back-reducing
-
             for strategy in reduction_strategies:
                 _detect_strategies(strategy, possible_strategies)
 
