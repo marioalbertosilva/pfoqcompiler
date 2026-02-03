@@ -260,7 +260,8 @@ class PfoqCompiler:
 
             if self._optimize_flag and width > 1:
                 if self._verbose_flag:
-                    print(f"Procedure {function} has width {width}. Turning off optimization.")
+                    print(f"- NOT bounded width: procedure {function} has width {width}.")
+                # turning off optimization
                 self._optimize_flag = False
 
         return self._width
@@ -506,7 +507,9 @@ class PfoqCompiler:
                 raise exception
 
         if self._verbose_flag:
-            print(f"\nCompiled circuit using {self._nb_ancillas} ancillas.", flush=True)
+            print(f"\nCompiled circuit using {self._nb_ancillas} ancillas,"
+                  + f" {self.compiled_circuit.size()} total gates"
+                  + f" and depth {self.compiled_circuit.depth()}", flush=True)
 
     def save(self, filename: str, qasm: bool = False) -> None:
         """
