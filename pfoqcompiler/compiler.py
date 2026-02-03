@@ -307,9 +307,7 @@ class PfoqCompiler:
             print(f"- Bounded width: {max_width}")
 
         # Uniformity check
-        self.check_uniformity(components)
-
-        if self._verbose_flag and self._is_uniform:
+        if self._verbose_flag and self.check_uniformity(components):
             print("- Uniform")
 
     def check_uniformity(self, _components: Optional[list[set[str]]] = None):

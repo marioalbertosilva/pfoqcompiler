@@ -1,20 +1,20 @@
 decl qft(a){
     a[0] *= H;
-    call rot[2](a);
+    call rot(a);
     call qft(a-[0]); }
 
 decl invert(a){
-    if(|a|>1)then{
+    if(|a|>=2)then{
         SWAP(a[0],a[-1]);
         call invert(a-[0,-1]); } }
 
-decl rot[x](a){
-    if(|a|>1)then{
-        qcase(a[1]) of {
+decl rot(a){
+    if(|a|>=2)then{
+        qcase(a[-1]) of {
             0-> skip;,
-            1-> a[0] *= Ph[lambda x:pi/(2**x)](x-1);
+            1-> a[0] *= Ph[lambda x:pi/(2**x)](|a|-1);
         }
-    call rot[x+1](a-[1]); } }
+    call rot(a-[-1]); } }
 ::
 define q;
 ::
