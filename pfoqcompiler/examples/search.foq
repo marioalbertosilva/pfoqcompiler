@@ -1,10 +1,19 @@
 decl search(a,b){
     if(|a|>1)then{
-        qcase(a[|(a)^-|-1],a[|(a)^-|]) of {
-	    00 -> call search((a)^+ -[0], b);,
-	    01 -> b[0] *= NOT;,
-	    10 -> call search((a)^- -[-1], b);,
-	    11 -> skip;} } }
+    	if((|a|/2)/2 < ((|a|/2)+1)/2)then{ #|a|/2 odd
+            qcase(a[|(a)^-|-1],a[|(a)^-|]) of {
+	        00 -> call search((a)^+ -[0], b);,
+	        01 -> b[0] *= NOT;,
+	        10 -> call search((a)^- -[-1], b);,
+	        11 -> skip;} }
+	else { #|a|/2 even
+	     qcase(a[|(a)^-|],a[|(a)^-|+1]) of {
+	        00 -> call search((a)^+ -[0,1], b);,
+	        01 -> b[0] *= NOT;,
+	        10 -> call search((a)^-, b);,
+	        11 -> skip;}
+	}
+	}}
 ::
 define q r;
 ::

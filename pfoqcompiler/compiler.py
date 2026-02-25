@@ -511,6 +511,7 @@ class PfoqCompiler:
             if not type(self.compiled_circuit) == QuantumCircuit:
                 raise ValueError("No circuit was created.")
 
+            
             print(f"\nCompiled circuit using {self._nb_ancillas} ancillas,"
                   + f" {self.compiled_circuit.size()} total gates"
                   + f" and depth {self.compiled_circuit.depth()}", flush=True)
