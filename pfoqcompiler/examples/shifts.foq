@@ -1,0 +1,10 @@
+decl shifts[x](a,b){
+  a[0]*=H;
+  qcase (a[0]) of {
+    0 -> skip;,
+    1 -> b[0]*=Ph[lambda x:pi/(2**x)](x);}
+  call shifts[x+1](a-[0],b); }
+::
+define q r;
+::
+call shifts[0](q,r);

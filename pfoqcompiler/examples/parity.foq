@@ -1,0 +1,19 @@
+decl parity(a){
+if(|a|>1)then{
+call parity((a)^+);
+call parity((a)^-);
+CNOT(((a)^-)[-1],a[-1]);
+}}
+
+decl parity_inv(a){
+if(|a|>1)then{
+CNOT(((a)^-)[-1],a[-1]);
+call parity_inv((a)^-);
+call parity_inv((a)^+);
+}}
+::
+define q r;
+::
+call parity(q);
+CNOT(q[-1],r[0]);
+call parity_inv(q);
