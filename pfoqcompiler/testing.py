@@ -315,32 +315,26 @@ if __name__ == '__main__':
     import os
     os.chdir(__examples_directory__)
 
-    program_tester = ProgramTester(program=open("qcase_SWAP.foq", "r").read(),
-                                   inout={(4,): [("0000", "0000"),   ("1000", "0001"),   ("0101", "1100"),  ("0101","1100"),  ("0010","1000")],
-                                          (5,): [("00000", "00000"), ("10000", "00001"), ("00101", "01100"),("00101","01100"),("00010","10000")]})
+    tests = [["qcase_SWAP.foq",
+              {(4,): [("0000", "0000"),   ("1000", "0001"),   ("0101", "1100"),  ("0101","1100"),  ("0010","1000")],
+               (5,): [("00000", "00000"), ("10000", "00001"), ("00101", "01100"),("00101","01100"),("00010","10000")]}],
 
-    program_tester2 = ProgramTester(program=open("qcase_CNOT.foq", "r").read(),
-                                   inout={(3,): [("000", "011"), ("001", "000"), ("010", "001"), ("011", "010"), ("100", "111"), ("101", "100"), ("110", "101"), ("111", "110")]} )
+             ["qrca.foq",
+              {(2,2,3): [("0001010", "0101010"), ("0000110", "1100110"), ("0000101", "0010101")]}],
 
-    program_tester3 = ProgramTester(program=open("pairs.foq", "r").read(),
-                                   inout={(5,): [("00000","10000"), ("10000","00000"),
-                                                 ("00001","00001"), ("10001","10001"),
-                                                 ("00010","00010"), ("10010","10010"),
-                                                 ("00011","10011"), ("10011","00011")] })
-    
-    program_tester4 = ProgramTester(program=open("boolean_semantics.foq", "r").read(),
-                                   inout={(14,): [("00000000000000","11111111111111")] })
+             ["qcase_CNOT.foq",
+              {(3,): [("000", "011"), ("001", "000"), ("010", "001"), ("011", "010"), ("100", "111"), ("101", "100"), ("110", "101"), ("111", "110")]}],
 
+             ["pairs.foq",
+              {(3,): [("000","100")],
+               (5,): [("00000","10000"), ("10000","00000"), ("00001","00001"), ("10001","10001"), ("00010","00010"), ("10010","10010"), ("00011","10011"), ("10011","00011")]}],
 
-    print("Testing qcase_SWAP")
-    program_tester.run()
+             ["boolean_semantics.foq",
+              {(14,): [("00000000000000","11111111111111")] }]
+              ]
 
-    print("Testing qcase_CNOT")
-    program_tester2.run()
+    for filename,expected_results in tests:
+        print("Testing \'",filename,"\'")
+        ProgramTester(program=open(filename, "r").read(),inout=expected_results).run()
 
-    print("Testing pairs")
-    program_tester3.run()
-
-    print("Testing boolean semantics")
-    program_tester4.run()
 
