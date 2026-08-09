@@ -1,7 +1,7 @@
 Documentation of Pfoqcompiler
 ==============================
 
-**Pfoqcompiler** is a Python library that aims at compiling PFOQ program as detailed in this `paper <articlepolytime_>`_.
+**Pfoqcompiler** is a Python library that aims at compiling FOQ program.
 
 .. note::
 
@@ -19,5 +19,3 @@ Documentation of Pfoqcompiler
    :template: custom-module-template.rst
 
    pfoqcompiler
-
-.. _articlepolytime: https://arxiv.org/abs/2412.09153
