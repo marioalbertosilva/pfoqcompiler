@@ -1,3 +1,5 @@
+# Flips the n-th qubit if (n-1) first qubits sums to an odd number
+
 decl parity(a){
 if(|a|>1)then{
 call parity((a)^+);

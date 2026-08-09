@@ -1,3 +1,5 @@
+# Implements a full adder, r should large enough to store the sum of p and q
+
 decl add(a,b,c){
 	TOF(a[-1],b[-1],c[-2]);
 	CNOT(a[-1],b[-1]);

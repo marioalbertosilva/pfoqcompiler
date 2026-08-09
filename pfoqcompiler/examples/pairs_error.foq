@@ -7,10 +7,12 @@ decl pairs(a){
             },
             1->qcase(q[1]) of{
                 0->skip;,
-                1->call pairs(a-[0,1]);
+                1->call pairs(a-[0,1]);  # Illegally targeting controlled qubit
             }
         }
-    }else{a[0]*=NOT;}
+    } else {
+        a[0]*=NOT;
+    }
 }
 ::
 define q;

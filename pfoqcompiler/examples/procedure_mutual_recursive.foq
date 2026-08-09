@@ -1,3 +1,5 @@
+# Unit testing of two mutually recursive functions
+
 decl f(a){
    a[0]*=H;
    if(|a|>1) then {call g(a-[0]);}}

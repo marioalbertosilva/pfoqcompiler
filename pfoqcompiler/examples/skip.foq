@@ -1,3 +1,5 @@
+# Unit testing of skip statement
+
 ::
 define q;
 ::skip;

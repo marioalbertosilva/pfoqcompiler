@@ -1,3 +1,5 @@
+# Unit testing of gate application over multiple registers
+
 decl f(a,b){
 	qcase (a[0]) of {
 	0 -> a[1] *= NOT;,

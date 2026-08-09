@@ -1,3 +1,5 @@
+# Inverts the qubits of a register
+
 decl f(a){
      a[0] *= NOT;
      call f(a-[0]);

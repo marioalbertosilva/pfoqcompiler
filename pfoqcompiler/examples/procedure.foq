@@ -1,3 +1,5 @@
+# Maximally entangled state
+
 decl f(a){
    a[0]*=H;
    call f(a-[0]);

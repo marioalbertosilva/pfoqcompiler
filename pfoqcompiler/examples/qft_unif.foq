@@ -1,3 +1,5 @@
+# Implements QFT on a uniform input
+
 decl qft(a){
     a[0] *= H;
     call rot(a);

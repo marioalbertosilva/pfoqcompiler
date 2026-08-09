@@ -1,3 +1,5 @@
+# Unit testing of a program with a width of 2
+
 decl f(a){
 	if (|a|>1)then{
 	a[0]*=H;

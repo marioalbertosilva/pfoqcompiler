@@ -1,3 +1,5 @@
+# Toy example of a function with an integer input
+
 decl f[x](a){
   if(|a|>x)then{
   a[x]*=NOT;

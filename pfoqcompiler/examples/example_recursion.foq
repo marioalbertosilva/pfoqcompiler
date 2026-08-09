@@ -1,3 +1,5 @@
+# Toy example showing a basic recursive function
+
 decl f(a){
     if(|a|<2)then{
         a[0]*=NOT;

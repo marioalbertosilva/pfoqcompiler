@@ -1,3 +1,5 @@
+# Unit testing of two mutually recursive recursive functions
+
 decl f(a){
    qcase (a[0]) of {
    	0 -> call f(a-[0]);,

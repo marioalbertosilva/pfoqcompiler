@@ -1,3 +1,5 @@
+# Unit testing of a function taking multiple quantum register inputs
+
 decl f(a,b){
     a[(|a|)/2]*=H;
     b[0]*=NOT;

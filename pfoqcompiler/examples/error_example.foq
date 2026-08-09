@@ -1,7 +1,7 @@
 decl f(a){
     if(|a|>2)then{
         qcase(a[0]) of {
-            0-> call f(a-[1]);,
+            0-> call f(a-[1]);,  # Illegal use a controlled qubit as target
             1-> call f(a-[1]);
             }
     }else{a[0]*=NOT;}

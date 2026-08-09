@@ -1,3 +1,5 @@
+# Toy example
+
 decl shifts[x](a,b){
   a[0]*=H;
   qcase (a[0]) of {

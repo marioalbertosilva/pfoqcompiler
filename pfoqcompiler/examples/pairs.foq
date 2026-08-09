@@ -1,3 +1,5 @@
+# Inverts the last qubit if (n-1) first qubits belongs to [00|11]+
+
 decl pairs(a){
    if(|a|>2)then{
        qcase(a[0],a[1]) of {

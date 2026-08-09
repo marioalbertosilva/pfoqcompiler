@@ -1,3 +1,5 @@
+# Unit testing of CNOT inside a qcase
+
 ::
 define q;
 ::
