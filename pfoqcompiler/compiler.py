@@ -267,10 +267,12 @@ class PfoqCompiler:
         return self._width
 
     def verify(self):
-        """Statically checks the following properties:
-        - Well-foundedness: all cycles in the call graph reduce the number of accessible qubits
-        - Halving (subsumes well-foundedness): all cycles in the call graph reduce by half some input qubit list
-        - Bounded-width: recursive procedure calls occur on orthogonal computation branches   
+        """
+        Statically checks the following properties:
+          - Well-foundedness: all cycles in the call graph reduce the number of accessible qubits
+          - Halving (subsumes well-foundedness): all cycles in the call graph reduce by half some input qubit list
+          - Bounded-width: recursive procedure calls occur on orthogonal computation branches
+
         """
 
         assert self._ast is not None, "No AST is available."
@@ -316,13 +318,12 @@ class PfoqCompiler:
         """
         Returns 'True' if program describes a weakly uniform program, 'False' otherwise.
 
-        Must satisfy the following properties:
-        1) only one qubit variable;
-        2) no use of classical inputs;
-        3) recursive procedure calls or procedure calls are similarly-reducing
-            . strong uniformity: reduction strategy defined by a single formula
-            . front reducing: fr := a | (fr)^+ | fr - [0,1,...,n]
-            . back reducing: br := a | (br)^- | br - [-1,...,-n]
+        Must only have one qubit variable, not use any classical inputs and (recursive) procedure calls
+        must be similarly-reducing:
+            - strong uniformity: reduction strategy defined by a single formula
+            - front reducing: fr := a | (fr)^+ | fr - [0,1,...,n]
+            - back reducing: br := a | (br)^- | br - [-1,...,-n]
+
         """
         if _components is None:
             graph = self._compute_call_graph()

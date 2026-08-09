@@ -127,5 +127,32 @@ machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f pfoqcompiler/exa
 ![Program PAIRS on input size 11 (no optimization)](/doc/source/frontpage/pairs_no-optimize.png "Program PAIRS on input size 11 (no optimization)")
 
 
+## Testings
+Our tests can be run by running the `run_tests.sh` script. These unit tests checks the correct parsing and compiling of various FOQ programs.
+
+As part of these tests, a very basic program testing class has been created to ensure compiled programs behave correctly. Programs mapping computational basis states to computational basis states can be tested like this:
+
+```{python}
+ProgramTester(program=open("pfoqcompiler/examples/qrca", "r").read(),
+              inout={(1,1,2): [],
+                     (2,2,3): [("0001010", "0101010"), ("0000110", "1100110"), ("0000101", "0010101")],
+                     (15,15,16): [],
+                     (16,16,17): []}).run()
+```
+
+The `inout` parameter is a dictionary mapping a sequence of register sizes to a possibly empty list of test cases. The program will be compiled for each given sequence of register size, even when no test cases are given.
+
+Each test case is a pair of computational basis states written as binary strings, the left one being the input and the right one the expected output of the program. If you which to test the compiled circuit for more general input/output, you will have to simulate the statevector yourself with the usual qiskit approach by using the `compiled_circuit` property of a compiled `PfoqCompiler`.
+
+Note that the encoding used in the inout parameter is the qiskit encoding: the rightmost bit corresponds to the most-significant qubit of the first register and the leftmost bit corresponds to the least-significant qubit of the last register. Here, we are testing if the `"qrca.foq"` program correclty sums two-qubit registers by testing that the output for input 1 $(01_{2})$ and 1 $(01_{2})$ is indeed 2 $(010_{2})$, that the output for input 1 $(01_{2})$ and 2 $(10_{2})$ is indeed 3 $(011_{2})$ and that the output for input 2 $(10_{2})$ and 2 $(10_{2})$ is indeed 4 $(100_{2})$.
+
+## Documentation
+The documentation can be automatically generated with the following command:
+
+```{console}
+machine@user:~$ cd pfoqcompiler/doc
+machine@user:~$ make html
+machine@user:~$ firefox build/html/index.html
+```
 
 
