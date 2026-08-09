@@ -66,7 +66,7 @@ The program PAIRS (Figure 1) can be compiled for input size 11 with the followin
 machine@user:~$ python compiler.py -f pairs.pfoq -i 11
 ```
 and should output the circuit
-![Program PAIRS on input size 11](/FSCD_circuits/pairs_11.png "Program PAIRS on input size 11")
+![Program PAIRS on input size 11](/doc/source/frontpage/pairs_11.png "Program PAIRS on input size 11")
 
 The program QFT (Figure 5) on 4 qubits can be obtained with the command
 
@@ -74,7 +74,7 @@ The program QFT (Figure 5) on 4 qubits can be obtained with the command
 machine@user:~$ python compiler.py -f QFT-basic.pfoq -i 4
 ```
 with the circuit
-![Program QFT on input size 4](/FSCD_circuits/QFT_4.png "Program QFT on input size 4")
+![Program QFT on input size 4](/doc/source/frontpage/QFT_4.png "Program QFT on input size 4")
 
 The Full Adder program (Example 14) can be compiled for the case of 13 qubits with the command
 
@@ -82,7 +82,7 @@ The Full Adder program (Example 14) can be compiled for the case of 13 qubits wi
 machine@user:~$ python compiler.py -f full_adder-basic.pfoq -i 13
 ```
 and results in the circuit
-![Program Full Adder on input size 13](/FSCD_circuits/full-adder_13.png "Program Full Adder on input size 13")
+![Program Full Adder on input size 13](/doc/source/frontpage/full-adder_13.png "Program Full Adder on input size 13")
 
 The Chained Substring example (Example 15) for k=2 can be compiled on input size 10 with the command
 
@@ -90,9 +90,9 @@ The Chained Substring example (Example 15) for k=2 can be compiled on input size
 machine@user:~$ python compiler.py -f chained-substring.pfoq -i 10
 ```
 with the circuit
-![Program for chained substring (k=2) on input size 10](/FSCD_circuits/chained-substring_10.png "Program for chained substring (k=2) on input size 10")
+![Program for chained substring (k=2) on input size 10](/doc/source/frontpage/chained-substring_10.png "Program for chained substring (k=2) on input size 10")
 
-A more readable pdf version can be found ![here](/FSCD_circuits/chained-substring_10.pdf "here").
+A more readable pdf version can be found ![here](/doc/source/frontpage/chained-substring_10.pdf "here").
 
 The Sum(r) example (Example 16) for r=3 compiled for 6 input qubits is done with the command
 
@@ -100,7 +100,7 @@ The Sum(r) example (Example 16) for r=3 compiled for 6 input qubits is done with
 machine@user:~$ python compiler.py -f sum_three.pfoq -i 6
 ```
 with the circuit
-![Program Sum(r=3) on input size 6](/FSCD_circuits/sum_three_6.png "Program Sum(r=3) on input size 6")
+![Program Sum(r=3) on input size 6](/doc/source/frontpage/sum_three_6.png "Program Sum(r=3) on input size 6")
 
 #### Running without optimization
 
@@ -109,7 +109,7 @@ The examples can also be easily run without any optimization (basically as in th
 ```console
 machine@user:~$ python compiler.py -f pairs.pfoq -i 11 --no-optimize
 ```
-![Program PAIRS on input size 11 (no optimization)](/FSCD_circuits/pairs_no-optimize.png "Program PAIRS on input size 11 (no optimization)")
+![Program PAIRS on input size 11 (no optimization)](/doc/source/frontpage/pairs_no-optimize.png "Program PAIRS on input size 11 (no optimization)")
 
 
 
