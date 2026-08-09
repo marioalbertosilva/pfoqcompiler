@@ -1,3 +1,5 @@
+# Looks for the occurence of 1 encoded as "01" in a sorted sequence of 0s ("00"), 1s ("01") and 2s ("10").
+
 decl search(a,b){
     if(|a|>1)then{
     	if((|a|/2)/2 < ((|a|/2)+1)/2)then{ #|a|/2 odd

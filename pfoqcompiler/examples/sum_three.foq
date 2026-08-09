@@ -1,3 +1,5 @@
+# Checks whether exactly three qubits among the (n-1) first qubits are set to 1.
+
 decl zero(a){ qcase (a[0]) of {0 -> call zero(a-[0]);, 1 -> call one(a-[0]); } }
 decl one(a){ qcase (a[0]) of {0 -> call one(a-[0]);, 1 -> call two(a-[0]); } }
 decl two(a){ qcase (a[0]) of {0 -> call two(a-[0]);, 1 -> call three(a-[0]); } }
