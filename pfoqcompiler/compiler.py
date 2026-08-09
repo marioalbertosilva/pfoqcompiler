@@ -12,13 +12,13 @@ import networkx as nx
 from typing_extensions import Optional, Union, Sequence, Literal
 from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister
 from qiskit.circuit import Qubit
-from qiskit.circuit.library import HGate, XGate, CCXGate, SwapGate, RYGate, CPhaseGate, PhaseGate, Barrier
-from qiskit.circuit import Gate, ControlledGate, CircuitInstruction
+from qiskit.circuit.library import HGate, SwapGate, RYGate, Barrier
+from qiskit.circuit import Gate, CircuitInstruction
 from qiskit.visualization import circuit_drawer
 import qiskit.qasm3
 from math import ceil, pi
 
-from pfoqcompiler.errors import WellFoundedError, WidthError, AncillaIndexError, NotCompiledError
+from pfoqcompiler.errors import WellFoundedError, AncillaIndexError, NotCompiledError
 from pfoqcompiler.parser import PfoqParser
 
 
@@ -66,7 +66,7 @@ class PfoqCompiler:
     def __init__(self,
                  program: Optional[str] = None,
                  filename: Optional[str] = None,
-                 nb_qubits: Sequence[int] = [8],
+                 nb_qubits: Sequence[int] = list(),
                  nb_ancillas: int = 1,
                  optimize_flag: bool = True,
                  debug_flag : bool = False,
@@ -93,7 +93,7 @@ class PfoqCompiler:
         self._parser = PfoqParser()
         self._nb_qubits = nb_qubits
         self._nb_ancillas = nb_ancillas
-        self._nb_total_wires: int = sum(self._nb_qubits) + self._nb_ancillas
+        self._nb_total_wires: int = sum(self._nb_qubits) if self._nb_qubits else 0 + self._nb_ancillas
         self._qr = []
         self._ar = AncillaRegister(self._nb_ancillas, name="|0\\rangle")
         self._functions: dict[str, Tree] = {} # information about procedure statements
@@ -485,6 +485,12 @@ class PfoqCompiler:
         >>> compiler.compile()
 
         """
+        if self._ast is None:
+            self.parse()
+
+        if self._width is None:
+            self.verify()
+
         while True:
             try:
                 self._compiled_circuit = self._compr_prg()

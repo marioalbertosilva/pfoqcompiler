@@ -1,7 +1,6 @@
 from pfoqcompiler.testing import ProgramTester
 from lark.exceptions import UnexpectedCharacters
 from pfoqcompiler import __examples_directory__
-from numpy._core._exceptions import _ArrayMemoryError
 import os
 
 os.chdir(__examples_directory__)
