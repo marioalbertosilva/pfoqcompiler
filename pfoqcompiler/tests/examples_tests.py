@@ -104,7 +104,7 @@ print("Testing " + (namefile := "pairs_error.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(5,): []}, expected_error=IndexError, expected_error_stage="compilation").run()
 
 print("Testing " + (namefile := "pairs.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(5,): [("00110","00111")], (5,): [("011000","011000")]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(5,): [("00000","10000"), ("00110","00110"), ("10000","00000"), ("00001","00001"), ("10001","10001"), ("00010","00010"), ("10010","10010"), ("00011","10011"), ("10011","00011")]}).run()
 
 print("Testing " + (namefile := "palindrome.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,1): [("00110","10110"), ("00010","00010")],
@@ -130,27 +130,30 @@ ProgramTester(program=open(namefile, "r").read(), inout={(3,): [("000", "011"), 
 print("Testing " + (namefile := "qcase_SWAP.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(4,): [("1010", "1001"), ("1110", "0111")] }).run()
 
-print("Testing " + (namefile := "qft_basic.foq"))
+print("Testing " + (namefile := "qft_unif.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
 
 print("Testing " + (namefile := "qft.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
 
 print("Testing " + (namefile := "qrca.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(1,1,2): [], (2,2,3): [], (15,15,16): [], (16,16,17): []}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(1,1,2): [], (2,2,3): [("0001010", "0101010"), ("0000110", "1100110"), ("0000101", "0010101")], (15,15,16): [], (16,16,17): []}).run()
 
 print("Testing " + (namefile := "rec.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (15,): [], (16,): []}).run()
 
 print("Testing " + (namefile := "search.foq"))
-ProgramTester(program=open(namefile, "r").read(), inout={(4,1): [("01100","11100"), ("00000","00000")]}).run()
+ProgramTester(program=open(namefile, "r").read(), inout={(4,1): [("00100","00100"), ("00000","00000"), ("01010","11010")],
+                                                         (6,1): [("0011000","1011000")]}).run()
 
 print("Testing " + (namefile := "skip.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [('0', '0'), ('1', '1')]}).run()
 
 print("Testing " + (namefile := "sum_three.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [],
-                                                         (6,): [("000000","000000")], (16,): []}).run()
+                                                         (4,): [("0111","1111"), ("0101","0101")],
+                                                         (5,): [("01101", "11101"), ("01111", "01111")],
+                                                         (16,): []}).run()
 
 print("Testing " + (namefile := "width_two.foq"))
 ProgramTester(program=open(namefile, "r").read(), inout={(1,): [], (2,): [], (14,): []}).run()
