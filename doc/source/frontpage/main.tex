@@ -1,0 +1,351 @@
+
+
+
+\documentclass[a4paper,onecolumn,11pt,unpublished]{quantumarticle}
+\pdfoutput=1
+\usepackage{graphicx} % Required for inserting images
+%\usepackage[colorlinks,urlcolor=blue]{hyperref}
+
+\usepackage{amsfonts}
+
+
+\newcommand{\foq}{\textnormal{\textsc{foq}}}
+\newcommand{\wf}{\textnormal{\textsc{wf}}}
+\newcommand{\wi}{\textnormal{\textsc{width}}}
+\newcommand{\unif}{\textnormal{\textsc{basic}}}
+
+\newcommand{\pfoq}{\textnormal{\textsc{pfoq}}}
+\newcommand{\lfoq}{\textnormal{\textsc{lfoq}}}
+
+\newcommand{\pfoqcompiler}{\texttt{pfoqcompiler}}
+
+
+
+\newenvironment{PFOQprogram}{\ttfamily \begin{tabular}{l} }{\end{tabular}}
+
+\bibliographystyle{plainurl}% the mandatory bibstyle
+
+\title{PFOQcompiler: Efficient Compilation of Recursive Programs with Quantum Control} 
+
+\author{Mário Silva}
+\email{mario.machado\_da\_silva@ens-paris-saclay.fr}
+\affiliation{Universit\'{e} Paris-Saclay, Inria, CNRS, LMF, 91190 Gif-sur-Yvette, France}
+\orcid{ }
+\author{Alexandre Guernut}
+\affiliation{Affiliation}
+\orcid{ }
+
+
+
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+    As in classical programming, the use of recursion in quantum programming languages allows for direct and simple ways of describing programs. However, the recursive use of a quantum if statement can very easily incur a blow-up in circuit complexity as both branches of the if statement are compiled separately. In this work, we introduce \pfoqcompiler{}, the first compiler for recursive quantum programs that ensures efficient and even optimal compilation of quantum recursive programs in a language that is sound and complete for quantum polynomial.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Motivation} Quantum computing is 
+
+Different programming languages
+
+
+Implicit computational complexity~\cite{DL11,P20}
+
+Recently, compilation techniques stemming from the field of implicit computational complexity have allowed for avoiding such a blow-up in the case of a first-order quantum programming language~\cite{HPS23,HPS25}.
+
+
+
+\subsection{Contribution}
+
+In this work, we bring the ideas of~\cite{HPS23,HPS25,FHPS25} to practical fruition not only by providing a Qiskit compiler that implements the techniques described in these papers, but also by relaxing some of the restrictions placed on programs to which the circuits bounds apply, making the compilation techniques more generally applicable.
+
+We also implement an efficient static verification of conditions of \pfoq{}, \lfoq{} and \unif{} conditions that ensure the complexity bounds of the compilation.
+
+\subsection{Related work} The \pfoqcompiler{} package implements the compilation strategy of \emph{anchoring and merging} introduced in~\cite{HPS23} and further developed in~\cite{HPS25}. The anchoring and merging technique essentially \emph{exploits} the structure of recursive calls performed in different branches in order to reduce the asymptotic complexity of the obtained circuit.
+
+The difficulty of 
+Another approach to simplifying circuits obtained from quantum recursive programs is the recent work of~\cite{ZY25}, which automatically parallelizes procedure calls performed in different branches using the \emph{quantum demultiplexer}.
+
+\section{First-order quantum programs}
+
+\begin{figure}
+{\ttfamily
+\begin{tabular}{rrll}
+     \textnormal{Proc. decl.} & D\ :=&  $\epsilon \mid$ decl proc[x](v,\dots,v)\{S\}, D  & \\
+     \textnormal{Statements}  & S\ := & skip; & \textnormal{(no-op instruction)}\\
+     & & $\mid$\ q\ *=\ U(i);\ $\mid$\ CNOT(q,q); $\mid$ TOF(q,q,q);& \textnormal{(gate application)}\\
+     & & $\mid$\ S\ S & \textnormal{(composition)}\\
+     & & $\mid$\ if (b) then \{S\} else \{S\} & \textnormal{(classical if)}\\
+     & & $\mid$\ qcase (q) of \{0 -> S,\,1 -> S\} & \textnormal{(quantum if)}\\
+     & & $\mid$\ call proc[i](s,\dots,s); & \textnormal{(procedure call)}\\
+     \textnormal{Unitaries}  & U\ :=& H $\mid$ NOT $\mid$  Rot[f] $\mid$ Ph[f] &\\
+    \textnormal{Bools}  & b\ :=& true $\mid$ false $\mid$  i > i &\\
+     \textnormal{Integers}& i\ :=& x $\mid$ $n\in\mathbb{Z}$ $\mid$ |s| $\mid$ i+i\\
+     \textnormal{Qubits}& q\ :=& v[i]
+\end{tabular}
+}
+\caption{Syntax of FOQ.}
+\end{figure}
+\section{Overview of the compiler}
+
+
+The compiler is written in \texttt{python 3.10}, and uses the following additional packages:
+\begin{itemize}
+\item \texttt{typing\_extensions 4.13.1}: allows for the use of type hints in the program;
+\item \texttt{lark 1.2.2}: performs the parsing of the \foq{} program, resulting in an abstract syntax tree that is used to compile the circuit;
+\item \texttt{networkx 3.4.2}: used for generating the call-graph of the program, allowing to check if a program satisfies each of the syntactic restrictions required during the compilation. The call graph is then used to supplement the abstract syntax tree with information about recursive calls that guides the compilation algorithm;
+\item \texttt{qiskit 2.0.0}: provides the interface with the Qiskit language;
+\item \texttt{matplotlib 3.10.1}: used for drawing the compiled circuit.
+\end{itemize}
+
+
+The compiler is written in \texttt{python 3.10}, and uses the following additional packages:
+\begin{itemize}
+\item \texttt{typing\_extensions 4.13.1}: allows for the use of type hints in the program;
+\item \texttt{lark 1.2.2}: performs the parsing of the \foq{} program, resulting in an \emph{abstract syntax tree} that is used to compile the circuit;
+\item \texttt{networkx 3.4.2}: used for generating the call-graph of the program, allowing to check if a program is in $\wi_{\leq 1}$; this package also helps supplement the abstract syntax tree with 'width' information that guides the compilation algorithm;
+\item \texttt{qiskit 2.0.0}: provides the interface with the Qiskit language;
+\item \texttt{matplotlib 3.10.1}: used for drawing the compiled circuit.
+\end{itemize}
+
+The structure of the compiler is roughly the following:
+\vspace{3mm}
+
+\noindent
+\includegraphics[clip,trim={0.9cm 0 0 0},width=\textwidth]{pfoq_compiler.pdf}
+
+\vspace{3mm}
+
+
+
+Given a list of procedure declarations $\texttt{D}$ and a program statement $\texttt{S}$, the program is written as\[\texttt{D}:\,: \texttt{V} :\,: \texttt{S},\]
+where $\texttt{V}$ defines the quantum list variables in the program, which works to simplify the parsing.
+
+The size of each input qubit list is given to the compiler as argument to the option \texttt{-i}, and the file to be compiled is passed to the option \texttt{-f}. Given $k$ variables, the circuit for program \texttt{example.pfoq} can be obtained from the command
+\[\texttt{python compiler.py -f example.pfoq -i}\ \texttt{n}_1\ \texttt{n}_2\ \dots\ \texttt{n}_k,\]
+where each $\texttt{n}_1,\ldots,\texttt{n}_k$ is a natural number denoting the size of the register corresponding to each variable declared in \texttt{V}.
+
+\subsection{The \pfoqcompiler{} by example}
+
+
+
+We start by considering the following simple program that, given an input list of qubits \texttt{q}, applies a Hadamard gate to the first qubit and a CNOT gate to the first two qubits.
+
+\vspace{3mm}
+\noindent
+\begin{minipage}{0.5\textwidth}
+\scalebox{0.9}{
+\begin{PFOQprogram}
+::\\
+define q;\\
+::\\
+q[0] *= H;\\
+qcase (q[0]) of \{\\
+\quad 0 -> skip;,\\
+\quad 1 -> q[1] *= NOT; \}
+\end{PFOQprogram}}
+\end{minipage}
+\begin{minipage}{0.5\textwidth}
+\begin{center}
+\scalebox{0.8}{
+\texttt{\color{gray} python compiler.py -f Bell\_qcase.pfoq -i 2}}\\
+\vspace{3mm}
+\includegraphics[scale=0.45,trim={20mm 10mm 5mm 10mm},clip]{circuits/Bell_qcase.pdf}
+\end{center}
+\end{minipage}
+\vspace{3mm}
+
+
+We should highlight two aspects: the indexing of the compiler is 0-based, as opposed to the \foq{} syntax which was 1-based. This allows for better interfacing with Qiskit, which is 0-based.
+
+Another detail is that the CNOT is written using a \texttt{qcase} statement. Since this is a very standard statement, we include it as a basic instruction in the syntax. Therefore, the following program results in precisely the same circuit.
+\vspace{3mm}
+
+\noindent
+\begin{minipage}{0.5\textwidth}
+\scalebox{0.9}{
+\begin{PFOQprogram}
+::\\
+define q;\\
+::\\
+q[0] *= H;\\
+CNOT(q[0],q[1]);
+\end{PFOQprogram}}
+\end{minipage}
+\begin{minipage}{0.5\textwidth}
+\begin{center}
+\scalebox{0.8}{
+\texttt{\color{gray} python compile.py -f Bell\_CNOT.pfoq -i 2}}
+\end{center}
+\end{minipage}
+\vspace{3mm}
+
+Other standard instructions include the $\texttt{SWAP}$ and $\texttt{TOF}$ which correspond to the SWAP and Toffoli gates. Unitary gates also include the \texttt{Rot} and \texttt{Ph}, which encode the rotation and phase-shift gates, respectively.
+%
+In the case where there is a syntax error in the file, \texttt{lark} will raise an exception and point to the place in the file where the parsing failed.
+
+\subsection{Iteration}
+
+ In order to be able to iterate over an input qubit list, we can define recursive functions as is allowed in \foq{}, as demonstrated in the following example.
+\vspace{3mm}
+
+\noindent
+\begin{minipage}{0.35\textwidth}
+\scalebox{0.9}{
+\begin{PFOQprogram}
+decl cnots(q)\{\\
+\quad if (|q|>1) then \{\\
+\qquad CNOT(q[0],q[1]);\\
+\qquad call cnots(q-[0]); \}\\
+\quad else \{ skip; \} \}\\
+::\\
+define q;\\
+::\\
+q[0] *= H;\\
+call cnots(q);
+\end{PFOQprogram}}
+\end{minipage}
+\begin{minipage}{0.65\textwidth}
+\begin{center}
+\scalebox{0.8}{
+\texttt{\color{gray} python compiler.py -f cat\_state.pfoq -i 6}}\\
+\vspace{3mm}
+\includegraphics[scale=0.45,trim={26mm 18mm 16mm 20mm},clip]{circuits/cat_state.pdf}
+\end{center}
+\end{minipage}
+\vspace{3mm}
+
+By default, the compiler places invisible barriers between gates that preserve the ordering defined by the compiler, and stops Qiskit from changing the gate order according to parallelization or commutativity relations between gates. This ensures that the circuit visualization correctly depicts the circuit as described by the anchoring and merging compilation.
+
+
+However, to verify our claims about the depth of circuits, specifically in the case of \lfoq{} programs, we allow the circuit representation to depict this. To allow Qiskit to parallelize gates, one may use the \texttt{-\!\,-no-barriers} flag at the moment of compilation.
+\vspace{3mm}
+
+
+\noindent
+\begin{minipage}{0.3\textwidth}
+\scalebox{0.9}{
+\begin{PFOQprogram}
+decl cnots\_par(q)\{\\
+\quad if (|q|>1) then \{\\
+\qquad  CNOT(q[0],q[(|q|)/2]);\\
+\qquad  call cnots\_par((q)\^{}-);\\
+\qquad  call cnots\_par((q)\^{}+); \}\\
+\quad else \{ skip; \} \}\\
+::\\
+define q;\\
+::\\
+q[0] *= H;\\
+call cnots\_par(q);
+\end{PFOQprogram}}
+\end{minipage}
+\begin{minipage}{0.65\textwidth}
+\begin{center}
+\scalebox{0.8}{
+\texttt{\color{gray} python compiler.py -f cat\_state\_parallel.pfoq -i 8 -\!\,-no-barriers}}\\
+\vspace{3mm}
+ \includegraphics[scale=0.4,trim={340mm 20mm 340mm 25mm},clip]{circuits/cat_state_parallel.pdf}
+\end{center}
+\end{minipage}
+\vspace{3mm}
+
+
+For the previous program, the compiler prints out the message ``\texttt{Procedure cnots\_par has width 2. Turning off optimization.}'' indicating that the program does not satisfy the $\wi_{\leq 1}$ condition. For such programs, the optimization subroutine is not well-defined and so is not called. The program is then compiled using only the rules of \compile{} (Figure~\ref{fig:compile}), where we always consider the first case for procedure calls. Compilation without optimization is also accessible via the $\texttt{-\!\,-no-optimize}$ option given to the compiler.
+
+The number of arguments given should correspond to the number of variables defined in the program. For example, in the \texttt{QRCA.pfoq} program implementing the quantum ripple-carry adder makes use of 3 different qubit variables and therefore requires 3 separate input values.
+\vspace{3mm}
+
+
+\noindent
+\begin{minipage}{0.4\textwidth}
+\scalebox{0.85}{
+\begin{PFOQprogram}
+decl add(q,p,r)\{\\
+\quad TOF(q[-1],p[-1],r[-2]);\\
+\quad	CNOT(q[-1],p[-1]);\\
+\quad	TOF(p[-1],r[-1],r[-2]);\\
+\quad	CNOT(p[-1],r[-1]);\\
+\quad	CNOT(q[-1],p[-1]); \}\\
+\\
+decl full\_adder(q,p,r)\{\\
+\quad	if (|r|>1) then \{\\
+\quad	call add(q,p,r);\\
+\quad	call full\_adder(q-[-1],\\
+\quad \hphantom{call full\_adder(}p-[-1],\\
+\quad \hphantom{call full\_adder(}r-[-1]); \}\}\\
+::\\
+define q p r;\\
+::\\
+call full\_adder(q,p,r);
+\end{PFOQprogram}}
+\end{minipage}
+\begin{minipage}{0.6\textwidth}
+\begin{center}
+\scalebox{0.8}{
+\texttt{\color{gray} python compiler.py -f QRCA.pfoq -i 4 4 5}}\\
+\vspace{3mm}
+ \includegraphics[width= \textwidth,trim={40mm 20mm 28mm 25mm},clip]{circuits/QRCA_4_4_5.pdf}
+\end{center}
+\end{minipage}
+\vspace{3mm}
+
+
+\subsection{Anchoring and merging}
+
+In the case where a procedure is recursive and satisfies the $\wi_{\leq 1}$ condition, the compilation is performed with the \optimizeplus{} routine of~\cite{HPS25}. This generally requires the use of ancilla qubits, as in the following example of program \texttt{PAIRS} (Figure~\ref{fig:pairs}).
+\vspace{3mm}
+
+\noindent
+\begin{minipage}{0.45\textwidth}
+\scalebox{0.85}{
+\begin{PFOQprogram}
+decl pairs(q)\{\\
+\quad if (|q|>1) then \{\\
+\qquad  qcase(q[0]) of \{\\
+\qquad\quad  0 -> qcase (q[1]) of \{\\
+ \qquad\qquad 0 -> call pairs(q-[0,1]);,\\
+ \qquad\qquad 1 -> skip; \},\\
+\qquad\quad  1  -> qcase(q[1]) of \{\\
+ \qquad\qquad 0 -> skip;,\\
+ \qquad\qquad 1 -> call pairs(q-[0,1]); \}\\
+\qquad  \}\\
+\quad    \} else \{ q[0] *= NOT; \}\\
+\}\\
+::\\
+define q;\\
+::\\
+call pairs(q);
+\end{PFOQprogram}}
+\end{minipage}
+\begin{minipage}{0.55\textwidth}
+\begin{center}
+\scalebox{0.8}{
+\texttt{\color{gray} python compiler.py -f pairs.pfoq -i 11}}\\
+\vspace{3mm}
+ \includegraphics[width= \textwidth,trim={70mm 0 50mm 10mm},clip]{circuits/pairs_11.pdf}
+\end{center}
+\end{minipage}
+\vspace{3mm}
+
+The compiler automatically determines a sufficient amount of ancillas for the compilation, which depends on the program and the input size. We can compare the circuit for \texttt{PAIRS} obtained without optimization (the result of the ``in-depth'' strategy of Figure~\ref{fig:strategies}). In this case, the circuit corresponds to $2^{\frac{n-1}{2}}$ Toffoli gates, each with $n-1$ control-qubits.
+
+\newpage
+\begin{center}
+\scalebox{1}{
+\texttt{\color{gray} python compiler.py -f pairs.pfoq -i 11 -\!\,-no-optimize}}\\
+\vspace{3mm}
+ \includegraphics[width= \textwidth,trim={7mm 45mm 0mm 50mm},clip]{circuits/pairs_no-optimize.pdf}
+\end{center}
+
+We now consider programs where merging requires the use of controlled-swaps. Since $\texttt{PAIRS}\in\pfoq{}^\unif{}$, all merged procedures have the same input qubits and the merging complexity is $O(1)$. Generally, merging procedure calls involves the rearrangement of qubit addresses. In this case, the compiler performs the controlled-swapping technique described in Lemma~\ref{lem:permutation} which adds to the circuit a controlled permutation done in logarithmic depth.
+
+\subsection{Testing the compiler}
+
+\bibliography{references}
+
+
+\end{document}

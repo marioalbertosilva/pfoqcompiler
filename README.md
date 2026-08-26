@@ -32,7 +32,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 ### Installing the package:
 
-First, you must clone the Github repository (remove the `-b Zenodo` if you widh to install the latest version):
+First, you must clone the Github repository (remove the `-b Zenodo` if you wish to install the latest version):
 
 ```console
 machine@user:~$ git clone -b Zenodo https://github.com/marioalbertosilva/pfoqcompiler.git
@@ -59,75 +59,84 @@ from compiler import *
 ```
 
 
-## Examples
+## Examples (Section 3)
 
-### Basic programs
-
-We provide here instructions to compile different basic programs as examples. The compiler can be called either from command line or a Python program.
-
-The program PAIRS can be compiled for input size 11 with the following command
-```console
-machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f pfoqcompiler/examples/pairs.foq -i 11
-```
-and should output the circuit:
-![Program PAIRS on input size 11](/doc/source/frontpage/pairs_11.png "Program PAIRS on input size 11")
-
-The same circuit is compiled with the following Python statement:
-
-```{python}
-compiler = PfoqCompiler(filename="pfoqcompiler/examples/pairs.foq",  # Instantiate compilation task
-                        nb_qubits=[11])
-compiler.compile() # Parse and compile the program
-circuit = compiler.compiled_circuit # Output can be accessed as a qiskit.QuantumCircuit
-compiler.display()  # Output can be displayed
-compiler.save("pairs.pdf") # Or saved to a file
-```
-
-The program QFT on 4 qubits can be obtained with the command
+### Bell-state creation with qcase
 
 ```console
-machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f pfoqcompiler/examples/qft_unif.foq -i 4
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/Bell_qcase.foq" -i 2
 ```
-with the circuit
-![Program QFT on input size 4](/doc/source/frontpage/QFT_4.png "Program QFT on input size 4")
+![Program Bell_qcase.foq on input size 12](/doc/source/frontpage/Bell_qcase_2.pdf "Program Bell_qcase on input size 2")
 
-The Full Adder program can be compiled for the case of 4-qubit input size with the command
+### Bell-state creation with CNOT
 
 ```console
-machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f pfoqcompiler/examples/qrca.foq -i 4 4 5
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/Bell_qcase.foq" -i 2
 ```
-and results in the circuit
-![Program Full Adder on input size 13](/doc/source/frontpage/full-adder_4.png "Program Full Adder on input size 13")
+(results in the same circuit)
 
-The Chained Substring example for $k=2$ can be compiled on input size 10 with the command
+### GHZ state creation (linear)
 
 ```console
-machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f pfoqcompiler/examples/chained-substring.foq -i 10
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/ghz.foq" -i 6
 ```
-with the circuit
-![Program for chained substring (k=2) on input size 10](/doc/source/frontpage/chained-substring_10.png "Program for chained substring (k=2) on input size 10")
+![Program ghz.foq on input size 6](/doc/source/frontpage/ghz.pdf "Program GHZ on input size 6")
 
-A more readable pdf version can be found ![here](/doc/source/frontpage/chained-substring.pdf "here").
-
-The Sum(r) example for r=3 compiled for 6 input qubits is done with the command
+### GHZ state creation (parallel)
 
 ```console
-machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f pfoqcompiler/examples/sum_three.foq -i 6
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/ghz_par.foq" -i 8
 ```
-with the circuit
-![Program Sum(r=3) on input size 6](/doc/source/frontpage/sum_three_6.png "Program Sum(r=3) on input size 6")
+![Program ghz_par.foq on input size 8](/doc/source/frontpage/ghz_par.pdf "Program GHZ_PAR on input size 8")
+
+### Shifts
+
+```console
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/shifts.foq" -i 5 1
+```
+![Program shifts.foq on input size (5,1)](/doc/source/frontpage/shifts_5_1.pdf "Program SHIFTS on input size (5,1)")
+
+### Quantum Fourier transform
+
+```console
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/qft.foq" -i 6
+```
+![Program qft.foq on input size 6](/doc/source/frontpage/qft_6.pdf "Program QFT on input size 6")
+
+### Quantum ripple-carry adder
+
+```console
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/qrca.foq" -i 4 4 5
+```
+![Program qrca.foq on input size (4,4,5)](/doc/source/frontpage/qrca_4_4_5.pdf "Program QRCA on input size (4,4,5)")
+
+### Pairs
+
+```console
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/pairs.foq" -i 11
+```
+![Program pairs.foq on input size 11](/doc/source/frontpage/pairs_11.pdf "Program PAIRS on input size 11")
+
+
+### Binary search
+
+```console
+machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f "pfoqcompiler/examples/search.foq" -i 6 1
+```
+![Program search.foq on input size (6,1)](/doc/source/frontpage/search_6_1.pdf "Program SEARCH on input size (6,1)")
+
 
 #### Running without optimization
 
-The examples can also be easily run without any optimization (i.e. we ignore the width condition and always perform the first case of the procedure compilation rule). This is triggered with the option ```--no-optimize```. For instance, program PAIRS on input size 11 with no optimization results in the following circuit.
+The `pfoqcompiler` also has a setting for compiling without anchoring-and-merging, essentially applying the sequential method of Figure 2. This is triggered with the option ```--no-optimize```. For instance, program PAIRS on input size 11 with no optimization results in the following circuit.
 
 ```console
 machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f pfoqcompiler/examples/pairs.foq -i 11 --no-optimize
 ```
-![Program PAIRS on input size 11 (no optimization)](/doc/source/frontpage/pairs_no-optimize.png "Program PAIRS on input size 11 (no optimization)")
+![Program PAIRS on input size 11 with sequential method](/doc/source/frontpage/pairs_no-optimize.pdf "Program PAIRS on input size 11 with sequential method")
 
 
-## Testings
+## Testing
 Our tests can be run by running the `run_tests.sh` script. These unit tests checks the correct parsing and compiling of various FOQ programs.
 
 As part of these tests, a very basic program testing class has been created to ensure compiled programs behave correctly. Programs mapping computational basis states to computational basis states can be tested like this:
