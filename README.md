@@ -133,7 +133,7 @@ The `pfoqcompiler` also has a setting for compiling without anchoring-and-mergin
 ```console
 machine@user:~/pfoqcompiler$ python pfoqcompiler/compiler.py -f pfoqcompiler/examples/pairs.foq -i 11 --no-optimize
 ```
-![Program PAIRS on input size 11 with sequential method](/doc/source/frontpage/pairs_no-optimize.pdf "Program PAIRS on input size 11 with sequential method")
+![Program PAIRS on input size 11 with sequential method](/doc/source/frontpage/pairs_no-optimize.pdf)
 
 
 ## Testing
